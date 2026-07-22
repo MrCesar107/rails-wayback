@@ -111,18 +111,27 @@ bundle exec rspec
 
 ## Release
 
-Releases are cut by pushing an annotated `vX.Y.Z` git tag. GitHub Actions builds
-the gem, runs the specs, pushes it to RubyGems, and creates a GitHub release
-attached to the same tag.
+Releases are cut by pushing an annotated `vX.Y.Z` git tag. GitHub Actions runs
+the specs and pushes the gem to RubyGems using
+[Trusted Publishing (OIDC)](https://guides.rubygems.org/trusted-publishing/),
+so there are no API tokens stored on GitHub and MFA on the RubyGems account is
+never in the way.
 
 ### One-time setup
 
-1. Create an API key on [rubygems.org](https://rubygems.org/profile/api_keys)
-   scoped to `push_rubygem` for `rails-wayback`.
-2. On GitHub, go to **Settings → Secrets and variables → Actions → New
-   repository secret** and add:
-   - Name: `RUBYGEMS_API_KEY`
-   - Value: the key from step 1 (starts with `rubygems_`).
+1. On GitHub, go to **Settings → Environments → New environment** and create
+   an environment named exactly `release`. (Optionally add branch protection
+   so only `main` and tags can deploy to it.)
+2. On [rubygems.org](https://rubygems.org):
+   - For the very first release, go to **Profile → Trusted publishers →
+     Pending trusted publishers → Create** and fill in:
+     - RubyGem name: `rails-wayback`
+     - Repository owner: `MrCesar107`
+     - Repository name: `rails-wayback`
+     - Workflow filename: `release.yml`
+     - Environment: `release`
+   - For every release after 0.1.0, the pending publisher is promoted to a
+     normal trusted publisher automatically — nothing to configure again.
 3. Make sure MFA is enabled on your RubyGems account (the gemspec sets
    `rubygems_mfa_required = true`).
 
