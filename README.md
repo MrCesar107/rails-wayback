@@ -109,6 +109,55 @@ bundle install
 bundle exec rspec
 ```
 
+## Release
+
+Releases are cut by pushing an annotated `vX.Y.Z` git tag. GitHub Actions builds
+the gem, runs the specs, pushes it to RubyGems, and creates a GitHub release
+attached to the same tag.
+
+### One-time setup
+
+1. Create an API key on [rubygems.org](https://rubygems.org/profile/api_keys)
+   scoped to `push_rubygem` for `rails-wayback`.
+2. On GitHub, go to **Settings → Secrets and variables → Actions → New
+   repository secret** and add:
+   - Name: `RUBYGEMS_API_KEY`
+   - Value: the key from step 1 (starts with `rubygems_`).
+3. Make sure MFA is enabled on your RubyGems account (the gemspec sets
+   `rubygems_mfa_required = true`).
+
+### Cutting a release
+
+1. Update `lib/rails_wayback/version.rb` following
+   [SemVer](https://semver.org/spec/v2.0.0.html).
+2. Move the pending entries in `CHANGELOG.md` from `[Unreleased]` into a new
+   `[X.Y.Z] - YYYY-MM-DD` section and update the compare/tag links at the
+   bottom of the file.
+3. Commit both files:
+   ```bash
+   git commit -am "Release vX.Y.Z"
+   ```
+4. Tag and push:
+   ```bash
+   git tag -a vX.Y.Z -m "Release vX.Y.Z"
+   git push origin main --follow-tags
+   ```
+5. Watch the `Release` workflow on GitHub. It refuses to publish if the tag
+   doesn't match `RailsWayback::VERSION`, so a typo in the tag will fail
+   loudly before touching RubyGems.
+
+### Manual fallback
+
+If the workflow is broken and you need to publish from your laptop:
+
+```bash
+gem build rails-wayback.gemspec
+gem push rails-wayback-X.Y.Z.gem
+```
+
+`gem push` will ask for your RubyGems credentials and MFA code the first
+time.
+
 ## License
 
 MIT

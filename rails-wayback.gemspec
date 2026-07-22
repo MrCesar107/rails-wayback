@@ -6,6 +6,7 @@ Gem::Specification.new do |spec|
   spec.name = "rails-wayback"
   spec.version = RailsWayback::VERSION
   spec.authors = ["MrCesar107"]
+  spec.email = ["cesar.rodriguez.lara54@gmail.com"]
 
   spec.summary = "Preview and compare Rails UI across git branches and commits."
   spec.description = <<~DESC
@@ -19,9 +20,10 @@ Gem::Specification.new do |spec|
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.1"
 
-  spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
+  spec.metadata["bug_tracker_uri"] = "#{spec.homepage}/issues"
   spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
+  spec.metadata["rubygems_mfa_required"] = "true"
 
   spec.files = Dir[
     "{app,config,lib,exe}/**/*",
