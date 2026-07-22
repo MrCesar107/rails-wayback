@@ -1,0 +1,8 @@
+Description:
+    Installs rails-wayback in the current Rails application.
+
+    Adds a conditional mount to config/routes.rb and drops an initializer
+    at config/initializers/rails_wayback.rb.
+
+Example:
+    rails generate rails_wayback:install
