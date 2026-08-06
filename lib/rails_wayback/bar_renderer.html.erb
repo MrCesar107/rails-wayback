@@ -1,0 +1,22 @@
+<style data-rails-wayback><%= styles %></style>
+<div id="rails-wayback-bar" data-mount="<%= escape(@engine_mount) %>"
+     data-branch="<%= escape(@current_branch) %>"
+     data-commit="<%= escape(@current_commit) %>"
+     data-active-ref="<%= escape(@active_ref.to_s) %>"
+     data-active-branch="<%= escape(@active_branch.to_s) %>">
+  <div class="rw-bar-inner">
+    <div class="rw-field">
+      <label><%= escape(branch_label) %></label>
+      <select data-rw-branch></select>
+    </div>
+    <div class="rw-field rw-flex">
+      <label><%= escape(commit_label) %></label>
+      <select data-rw-commit></select>
+    </div>
+    <div class="rw-state" data-rw-state></div>
+    <button type="button" data-rw-travel class="rw-btn rw-btn-primary">Travel</button>
+    <button type="button" data-rw-reset class="rw-btn rw-btn-ghost" hidden>Return to HEAD</button>
+  </div>
+  <%= diff_summary_html %>
+</div>
+<script data-rails-wayback><%= script %></script>

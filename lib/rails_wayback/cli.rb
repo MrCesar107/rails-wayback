@@ -40,7 +40,7 @@ module RailsWayback
 
     def cmd_on
       RailsWayback.enable!
-      @stdout.puts "rails-wayback: enabled (mounted at /rails-wayback on the next request)"
+      @stdout.puts "rails-wayback: enabled for this server session (mounted at /rails-wayback on the next request)"
       0
     end
 

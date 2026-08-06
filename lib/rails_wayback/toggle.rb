@@ -3,11 +3,12 @@
 require "fileutils"
 
 module RailsWayback
-  # Persists whether the engine should be mounted in the host app.
+  # Shares the current server session's state between the CLI and Rails.
   #
   # The flag is a plain file inside `tmp/rails_wayback/enabled` (ignored by
   # git). We keep it as a file so the CLI, rake tasks and running Rails
-  # process all agree on the same state without booting extra services.
+  # process all agree on the same state without booting extra services. The
+  # engine clears stale state whenever a new Rails server session starts.
   class Toggle
     def initialize(configuration = RailsWayback.configuration)
       @configuration = configuration
@@ -27,6 +28,13 @@ module RailsWayback
     def disable!
       FileUtils.rm_f(configuration.toggle_file_path)
       touch_routes_reload_marker
+      true
+    end
+
+    # Start a new server session disabled. Unlike `disable!`, this does not
+    # touch routes: Rails is already loading them as part of server boot.
+    def reset!
+      FileUtils.rm_f(configuration.toggle_file_path)
       true
     end
 

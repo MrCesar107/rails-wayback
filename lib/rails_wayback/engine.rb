@@ -9,6 +9,13 @@ module RailsWayback
   class Engine < ::Rails::Engine
     isolate_namespace RailsWayback
 
+    # Activation is scoped to a Rails server session. The marker still lets
+    # the standalone CLI toggle a running server, but a later server boot
+    # always starts with Wayback disabled.
+    server do
+      RailsWayback.toggle.reset!
+    end
+
     initializer "rails_wayback.controller_extensions" do
       ActiveSupport.on_load(:action_controller_base) do
         include RailsWayback::ControllerExtensions

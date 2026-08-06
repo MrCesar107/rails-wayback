@@ -56,6 +56,10 @@ bundle exec rails-wayback clean   # drop the tmp/rails_wayback ref cache
 Same commands as rake tasks: `rake wayback:on`, `wayback:off`,
 `wayback:status`, `wayback:clean`.
 
+Activation lasts for the current Rails server session. Every new server start
+begins with `rails-wayback` disabled, while `on` and `off` can still be used at
+any time without restarting Rails.
+
 With the gem enabled, load any page of your app. A dark bar appears at the
 bottom with:
 

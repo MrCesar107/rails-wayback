@@ -9,6 +9,9 @@ module RailsWayback
   # We shell out to git instead of pulling in a dependency to keep the
   # gem light. All commands are scoped to the host app root and return
   # plain Ruby data structures.
+  #
+  # NOTE: Maybe we should need to use a git library instead of shelling out to git.
+  # Only if this functionality is not enough for the gem on the future.
   class Git
     Commit = Struct.new(:sha, :short_sha, :subject, :author, :date, keyword_init: true)
 
