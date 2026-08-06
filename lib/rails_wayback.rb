@@ -2,6 +2,7 @@
 
 require "rails_wayback/version"
 require "rails_wayback/configuration"
+require "rails_wayback/render_provenance"
 require "rails_wayback/toggle"
 require "rails_wayback/git"
 require "rails_wayback/view_source"
@@ -17,6 +18,12 @@ module RailsWayback
   # The middleware resets this at the start of each request and reads
   # it back to report per-page diff coverage in the bar.
   RENDER_TRACKER_KEY = :rails_wayback_rendered_templates
+  RENDER_EVENTS = %w[
+    render_template.action_view
+    render_partial.action_view
+    render_layout.action_view
+    render_collection.action_view
+  ].freeze
 
   class << self
     def configure
@@ -37,11 +44,33 @@ module RailsWayback
       @toggle ||= Toggle.new(configuration)
     end
 
+    def current_environment
+      if defined?(Rails) && Rails.respond_to?(:env) && Rails.env
+        Rails.env.to_s
+      else
+        ENV["RAILS_ENV"] || ENV["RACK_ENV"]
+      end
+    end
+
+    def environment_allowed?
+      environment = current_environment.to_s
+      return true if environment.empty?
+
+      configuration.allowed_environments.map(&:to_s).include?(environment)
+    end
+
     def enabled?
-      toggle.enabled?
+      environment_allowed? && toggle.enabled?
     end
 
     def enable!
+      unless environment_allowed?
+        allowed = configuration.allowed_environments.map(&:to_s).join(", ")
+        raise DisabledError,
+              "environment #{current_environment.inspect} is not allowed " \
+              "(allowed: #{allowed})"
+      end
+
       toggle.enable!
     end
 

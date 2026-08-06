@@ -114,21 +114,27 @@ module RailsWayback
     # Builds the diff summary shown in the bar when a ref is active.
     # `changed_files`: view/asset paths that differ between the ref and
     # the current working tree, always scoped to the paths the gem
-    # actually swaps. `rendered_from_ref`: relative paths (under
-    # app/views, app/components, ...) that the current request rendered
-    # from the sandbox. `matched`: intersection — the templates on this
-    # page that actually reflect a real diff between branches.
+    # actually swaps. Rendered paths are split by origin so the toolbar can
+    # warn when a successful page silently mixes historical templates with
+    # current-tree fallbacks.
     def build_diff_info(git, ref)
       config = RailsWayback.configuration
       tracked_paths = (config.view_paths + config.asset_paths).uniq
       changed_files = git.diff_paths(ref, paths: tracked_paths)
 
-      rendered_from_ref = rendered_relative_paths(config)
+      rendered = RailsWayback::RenderProvenance.paths_by_origin(
+        Thread.current[RailsWayback::RENDER_TRACKER_KEY],
+        configuration: config
+      )
+      rendered_from_ref = rendered[:historical]
+      rendered_from_current = rendered[:current]
       matched = changed_files & rendered_from_ref
 
       {
         changed_files: changed_files,
         rendered_from_ref: rendered_from_ref,
+        rendered_from_current: rendered_from_current,
+        preview_mode: preview_mode(rendered_from_ref, rendered_from_current),
         matched: matched
       }
     rescue StandardError => e
@@ -136,21 +142,12 @@ module RailsWayback
       nil
     end
 
-    def rendered_relative_paths(config)
-      tracker = Array(Thread.current[RailsWayback::RENDER_TRACKER_KEY])
-      return [] if tracker.empty?
+    def preview_mode(historical, current)
+      return :mixed if historical.any? && current.any?
+      return :historical if historical.any?
+      return :current_fallback if current.any?
 
-      sandbox_prefix = config.refs_cache_path.to_s
-      # Sandbox identifiers look like:
-      #   /.../tmp/rails_wayback/refs/<sha>/app/views/foo/_bar.html.haml
-      # Strip up to and including the sha directory to get back
-      # `app/views/foo/_bar.html.haml`, which matches `git diff --name-only`.
-      strip_re = %r{\A#{Regexp.escape(sandbox_prefix)}/[^/]+/}
-
-      tracker.filter_map do |identifier|
-        next unless identifier.start_with?(sandbox_prefix)
-        identifier.sub(strip_re, "")
-      end.uniq
+      :unknown
     end
 
     # Query params take priority (one-off overrides / shared links);

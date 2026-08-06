@@ -37,6 +37,10 @@
 #rails-wayback-bar .rw-diff-match .rw-diff-msg { color: #7ee787; }
 #rails-wayback-bar .rw-diff-miss .rw-diff-msg { color: #ffd479; }
 #rails-wayback-bar .rw-diff-neutral .rw-diff-msg { color: #8a93a6; }
+#rails-wayback-bar .rw-provenance { font-weight: 600; }
+#rails-wayback-bar .rw-provenance-historical { color: #7ee787; }
+#rails-wayback-bar .rw-provenance-mixed,
+#rails-wayback-bar .rw-provenance-current { color: #ffb86b; }
 #rails-wayback-bar .rw-diff-details { color: #8a93a6; }
 #rails-wayback-bar .rw-diff-details summary {
   cursor: pointer; user-select: none;

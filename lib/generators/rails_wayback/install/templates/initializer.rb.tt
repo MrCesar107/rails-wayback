@@ -8,6 +8,10 @@
 # so you can pick a branch/commit and travel to that ref's views for
 # the current URL. Delete this file if the defaults below work for you.
 RailsWayback.configure do |config|
+  # Rails Wayback is unavailable outside these environments, even if its
+  # toggle file exists. Add another environment only as an explicit opt-in.
+  # config.allowed_environments = %w[development test]
+
   # Directories (relative to Rails.root) whose contents are pulled from
   # the target git ref and used to render the historical preview.
   # config.view_paths  = %w[app/views]

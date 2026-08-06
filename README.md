@@ -67,6 +67,9 @@ bottom with:
 - `Current commit` — dropdown of the recent commits on that branch.
 - `Travel` — reloads the current URL using views from that commit.
 - `Return to HEAD` — appears while traveling; goes back to live views.
+  It uses a server-side reset endpoint, which is also available directly at
+  `/rails-wayback/reset` if a historical template prevents the page from
+  rendering.
 
 There is no dedicated `/rails-wayback` page. The gem stays quiet on assets,
 ActionCable, and every URL under `/rails-wayback/*.json` (used by the bar to
@@ -89,7 +92,13 @@ fetch git data).
 
 If a historical template references a helper or assign that no longer
 exists, you'll get the same `ActionView` error you'd get from any missing
-piece — the app itself never changes.
+piece — the app itself never changes. Open `/rails-wayback/reset` to clear the
+travel cookies if that error prevents the toolbar from rendering.
+
+The toolbar tracks templates, partials, layouts, and collections. While
+traveling it labels a response as historical, current fallback, or mixed so
+you can tell when Rails filled a missing historical file from the current
+view tree.
 
 ## Configuration (optional)
 
@@ -97,14 +106,18 @@ piece — the app itself never changes.
 
 ```ruby
 RailsWayback.configure do |config|
+  # config.allowed_environments = %w[development test]
   # config.view_paths  = %w[app/views]
   # config.asset_paths = %w[app/assets public]
   # config.max_commits = 50
 end
 ```
 
-Everything above has a sensible default. Delete the initializer if you
-don't need to change anything.
+Rails Wayback refuses to activate outside `development` and `test` by
+default, even if its toggle file exists. Adding another environment is an
+explicit opt-in; historical templates execute inside the host Rails process,
+so only trusted refs should be used. Everything above has a sensible default.
+Delete the initializer if you don't need to change anything.
 
 ## Development
 

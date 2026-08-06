@@ -3,7 +3,8 @@
      data-branch="<%= escape(@current_branch) %>"
      data-commit="<%= escape(@current_commit) %>"
      data-active-ref="<%= escape(@active_ref.to_s) %>"
-     data-active-branch="<%= escape(@active_branch.to_s) %>">
+     data-active-branch="<%= escape(@active_branch.to_s) %>"
+     data-preview-mode="<%= escape(@diff_info&.dig(:preview_mode).to_s) %>">
   <div class="rw-bar-inner">
     <div class="rw-field">
       <label><%= escape(branch_label) %></label>

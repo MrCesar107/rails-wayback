@@ -27,25 +27,25 @@ module RailsWayback
     end
 
     initializer "rails_wayback.render_instrumentation" do
-      ActiveSupport::Notifications.subscribe("render_template.action_view") do |*args|
-        event = ActiveSupport::Notifications::Event.new(*args)
-        identifier = event.payload[:identifier].to_s
-        next if identifier.empty?
+      RailsWayback::RENDER_EVENTS.each do |event_name|
+        ActiveSupport::Notifications.subscribe(event_name) do |*args|
+          next unless RailsWayback.enabled?
 
-        origin = if identifier.include?("/tmp/rails_wayback/refs/")
-                   "SANDBOX"
-                 elsif identifier.start_with?("/")
-                   "CURRENT"
-                 else
-                   "OTHER"
-                 end
-        Rails.logger.info("[rails-wayback] render #{origin}: #{identifier}") if Rails.respond_to?(:logger)
+          event = ActiveSupport::Notifications::Event.new(*args)
+          identifier = event.payload[:identifier].to_s
+          next if identifier.empty?
 
-        # Per-request tracker so the middleware can report, in the bar,
-        # which templates the current page actually pulled from the
-        # sandbox. Middleware clears this at the start of every request.
-        tracker = Thread.current[RailsWayback::RENDER_TRACKER_KEY] ||= []
-        tracker << identifier
+          origin = RailsWayback::RenderProvenance.origin_for(identifier)
+          Rails.logger&.info(
+            "[rails-wayback] #{event.name} #{origin.to_s.upcase}: #{identifier}"
+          )
+
+          # Per-request tracker so the middleware can distinguish historical
+          # templates from current-tree fallbacks. Middleware clears this at
+          # the start of every request.
+          tracker = Thread.current[RailsWayback::RENDER_TRACKER_KEY] ||= []
+          tracker << { event: event.name, identifier: identifier }
+        end
       end
     end
 

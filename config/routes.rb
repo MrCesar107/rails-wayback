@@ -7,4 +7,5 @@ RailsWayback::Engine.routes.draw do
   # trailing `.json` defensively in case a client still appends it.
   get "branches", to: "pages#branches", format: false, as: :branches
   get "commits/*branch", to: "pages#commits", format: false, as: :commits
+  get "reset", to: "pages#reset", format: false, as: :reset
 end

@@ -69,10 +69,36 @@ module RailsWayback
 
       <<~HTML.strip
         <div class="#{css_class}">
+          #{provenance_html}
           <span class="rw-diff-msg">#{escape(message)}</span>
           #{list_html}
         </div>
       HTML
+    end
+
+    def provenance_html
+      historical = Array(@diff_info[:rendered_from_ref])
+      current = Array(@diff_info[:rendered_from_current])
+
+      message, css_class = case @diff_info[:preview_mode]&.to_sym
+                           when :mixed
+                             ["Mixed preview: #{count_label(historical.size, "historical template")}, " \
+                              "#{count_label(current.size, "current fallback")}.", "rw-provenance-mixed"]
+                           when :historical
+                             ["Historical preview: #{count_label(historical.size, "historical template")}.",
+                              "rw-provenance-historical"]
+                           when :current_fallback
+                             ["Current fallback: no historical templates rendered " \
+                              "(#{count_label(current.size, "current template")}).", "rw-provenance-current"]
+                           else
+                             return ""
+                           end
+
+      %(<span class="rw-provenance #{css_class}">#{escape(message)}</span>)
+    end
+
+    def count_label(count, singular)
+      "#{count} #{singular}#{"s" unless count == 1}"
     end
 
     def diff_details(summary, files)

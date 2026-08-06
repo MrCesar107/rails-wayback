@@ -42,6 +42,9 @@ module RailsWayback
       RailsWayback.enable!
       @stdout.puts "rails-wayback: enabled for this server session (mounted at /rails-wayback on the next request)"
       0
+    rescue RailsWayback::DisabledError => e
+      @stderr.puts "rails-wayback: cannot enable: #{e.message}"
+      1
     end
 
     def cmd_off
@@ -51,7 +54,11 @@ module RailsWayback
     end
 
     def cmd_status
-      @stdout.puts "rails-wayback: #{RailsWayback.toggle.status}"
+      if RailsWayback.environment_allowed?
+        @stdout.puts "rails-wayback: #{RailsWayback.toggle.status}"
+      else
+        @stdout.puts "rails-wayback: unavailable (environment #{RailsWayback.current_environment.inspect} is not allowed)"
+      end
       0
     end
 

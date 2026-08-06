@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Restricted activation to the `development` and `test` environments by
+  default, with an explicit `allowed_environments` configuration override.
+- Kept render instrumentation inactive whenever Rails Wayback is disabled.
+
+### Added
+
+- Added `/rails-wayback/reset` as a server-side recovery path that clears
+  travel cookies without rendering host application views.
+- Added provenance tracking for templates, partials, layouts, and collections,
+  including toolbar warnings for mixed historical/current previews.
+
 ## [0.1.1] - 2026-08-05
 
 ### Changed

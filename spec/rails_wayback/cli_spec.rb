@@ -23,6 +23,21 @@ RSpec.describe RailsWayback::CLI do
     end
   end
 
+  it "reports an error when enabling in a disallowed environment" do
+    SpecSupport.with_tmp_root do
+      out = StringIO.new
+      err = StringIO.new
+      allow(RailsWayback).to receive(:current_environment).and_return("production")
+
+      status = described_class.start(["on"], stdout: out, stderr: err)
+
+      expect(status).to eq(1)
+      expect(out.string).to be_empty
+      expect(err.string).to include("cannot enable", "production")
+      expect(RailsWayback.toggle.enabled?).to be(false)
+    end
+  end
+
   it "handles unknown commands by returning an error and showing help" do
     SpecSupport.with_tmp_root do
       out = StringIO.new

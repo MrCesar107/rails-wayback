@@ -91,5 +91,22 @@ RSpec.describe RailsWayback::BarRenderer do
       expect(html).to include("Matched on this page (1)")
       expect(html).to include("All changed files (1)")
     end
+
+    it "warns when historical templates are mixed with current fallbacks" do
+      html = render_with(
+        changed_files: ["app/views/letters/show.html.erb"],
+        rendered_from_ref: [
+          "app/views/letters/show.html.erb",
+          "app/views/letters/_letter.html.erb"
+        ],
+        rendered_from_current: ["app/views/layouts/application.html.erb"],
+        preview_mode: :mixed,
+        matched: ["app/views/letters/show.html.erb"]
+      )
+
+      expect(html).to include('data-preview-mode="mixed"')
+      expect(html).to include("rw-provenance-mixed")
+      expect(html).to include("Mixed preview: 2 historical templates, 1 current fallback")
+    end
   end
 end
