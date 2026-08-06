@@ -8,12 +8,19 @@ on:
 
 jobs:
   test:
-    name: RSpec (Ruby ${{ matrix.ruby }})
+    name: RSpec (Ruby ${{ matrix.ruby }}, Rails ${{ matrix.rails.version }})
     runs-on: ubuntu-latest
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/gemfiles/${{ matrix.rails.gemfile }}.gemfile
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.1", "3.2", "3.3"]
+        ruby: ["3.3", "3.4", "4.0"]
+        rails:
+          - version: "8.0"
+            gemfile: rails_8_0
+          - version: "8.1"
+            gemfile: rails_8_1
 
     steps:
       - name: Checkout code
@@ -24,6 +31,9 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
+
+      - name: Show resolved versions
+        run: bundle exec ruby -rbundler -rrails -e 'puts "Ruby #{RUBY_VERSION}, Rails #{Rails.version}, Bundler #{Bundler::VERSION}"'
 
       - name: Run RSpec
         run: bundle exec rspec

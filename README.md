@@ -119,11 +119,26 @@ explicit opt-in; historical templates execute inside the host Rails process,
 so only trusted refs should be used. Everything above has a sensible default.
 Delete the initializer if you don't need to change anything.
 
+## Compatibility
+
+Rails Wayback requires Ruby 3.3 or newer and Rails 8.0 or newer. CI runs the
+complete matrix of Ruby 3.3, 3.4, and 4.0 against Rails 8.0 and 8.1.
+Compatibility here means that the gem's suite passes on that combination; it
+does not extend the upstream maintenance or security lifetime of Ruby or Rails.
+
 ## Development
 
 ```bash
 bundle install
 bundle exec rspec
+```
+
+Rails dependency sets are managed with Appraisal. Regenerate their Gemfiles
+after changing `Appraisals`, then run an individual Rails line with:
+
+```bash
+bundle exec appraisal generate
+bundle exec appraisal rails-8-0 rspec
 ```
 
 ## Release

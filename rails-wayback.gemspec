@@ -18,7 +18,7 @@ Gem::Specification.new do |spec|
   DESC
   spec.homepage = "https://github.com/MrCesar107/rails-wayback"
   spec.license = "MIT"
-  spec.required_ruby_version = ">= 3.1"
+  spec.required_ruby_version = ">= 3.3"
 
   spec.metadata["source_code_uri"] = spec.homepage
   spec.metadata["bug_tracker_uri"] = "#{spec.homepage}/issues"
@@ -37,8 +37,9 @@ Gem::Specification.new do |spec|
   spec.executables = ["rails-wayback"]
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "rails", ">= 7.0"
+  spec.add_dependency "rails", ">= 8.0"
 
+  spec.add_development_dependency "appraisal", "~> 2.5"
   spec.add_development_dependency "rspec", "~> 3.13"
   spec.add_development_dependency "rake", "~> 13.0"
 end

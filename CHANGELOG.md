@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added provenance tracking for templates, partials, layouts, and collections,
   including toolbar warnings for mixed historical/current previews.
 
+### Changed
+
+- Raised the compatibility baseline to Ruby 3.3 and Rails 8.0.
+- Added Appraisal dependency sets and a complete CI matrix for Ruby 3.3, 3.4,
+  and 4.0 against Rails 8.0 and 8.1.
+
 ### Fixed
 
 - Made ref materialization transactional and concurrency-safe by validating the

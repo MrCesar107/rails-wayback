@@ -12,4 +12,5 @@
 .byebug_history
 
 Gemfile.lock
+/gemfiles/*.gemfile.lock
 .ruby-lsp/
