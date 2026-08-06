@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-05
+
+### Changed
+
+- Extracted the toolbar HTML, CSS, and JavaScript from `BarRenderer` into
+  dedicated packaged assets for easier maintenance.
+- Scoped CLI activation to the current Rails server session. A new server now
+  starts with Rails Wayback disabled while retaining runtime `on` and `off`
+  commands without requiring a restart.
+- Clarified the CLI output and documentation around activation lifetime.
+
 ## [0.1.0] - 2026-07-21
 
 ### Added
@@ -32,5 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a conditional mount into `config/routes.rb`, an optional initializer, and
   a `.gitignore` entry for `tmp/rails_wayback/`.
 
-[Unreleased]: https://github.com/MrCesar107/rails-wayback/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/MrCesar107/rails-wayback/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/MrCesar107/rails-wayback/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/MrCesar107/rails-wayback/releases/tag/v0.1.0
