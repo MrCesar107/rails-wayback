@@ -47,6 +47,18 @@ module RailsIntegrationSupport
   def response_header(response, name)
     response.headers[name] || response.headers[name.downcase]
   end
+
+  def capture_scenario(results, name)
+    results[name] = yield
+  rescue StandardError => error
+    results[name] = {
+      error: {
+        class: error.class.name,
+        message: error.message,
+        backtrace: Array(error.backtrace).first(10)
+      }
+    }
+  end
 end
 
 Dir.mktmpdir("rails-wayback-integration-") do |root_string|
@@ -114,108 +126,155 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
 
   request = Rack::MockRequest.new(RailsWaybackIntegrationApplication)
 
-  disabled_response = request.get(
-    "/integration?_wayback_ref=#{good_historical_sha}&_wayback_branch=main"
-  )
+  results = {}
+
+  RailsIntegrationSupport.capture_scenario(results, :disabled_mode) do
+    response = request.get(
+      "/integration?_wayback_ref=#{good_historical_sha}&_wayback_branch=main"
+    )
+
+    {
+      status: response.status,
+      uses_current_view: response.body.include?("Current view"),
+      bar_absent: !response.body.include?('id="rails-wayback-bar"'),
+      ref_header_absent: RailsIntegrationSupport.response_header(
+        response,
+        RailsWayback::ControllerExtensions::RESPONSE_HEADER
+      ).nil?
+    }
+  end
 
   RailsWayback.enable!
 
-  branches_response = request.get("/rails-wayback/branches")
-  branches_payload = JSON.parse(branches_response.body)
-  commits_response = request.get("/rails-wayback/commits/feature/nested")
-  commits_payload = JSON.parse(commits_response.body)
-  missing_commits_response = request.get("/rails-wayback/commits/missing-branch")
-  missing_commits_payload = JSON.parse(missing_commits_response.body)
+  RailsIntegrationSupport.capture_scenario(results, :branch_endpoints) do
+    branches_response = request.get("/rails-wayback/branches")
+    branches_payload = JSON.parse(branches_response.body)
+    commits_response = request.get("/rails-wayback/commits/feature/nested")
+    commits_payload = JSON.parse(commits_response.body)
+    missing_response = request.get("/rails-wayback/commits/missing-branch")
+    missing_payload = JSON.parse(missing_response.body)
 
-  broken_error = begin
-    request.get(
-      "/integration",
+    {
+      branches_status: branches_response.status,
+      current_branch: branches_payload["current_branch"],
+      current_commit_matches: branches_payload["current_commit"] == current_sha,
+      includes_main: branches_payload.fetch("branches").include?("main"),
+      includes_nested: branches_payload.fetch("branches").include?("feature/nested"),
+      commits_status: commits_response.status,
+      commits_branch: commits_payload["branch"],
+      includes_historical_commit: commits_payload.fetch("commits").any? do |commit|
+        commit["sha"] == good_historical_sha && commit["subject"] == "historical compatible view"
+      end,
+      missing_status: missing_response.status,
+      missing_commits_empty: missing_payload["commits"] == [],
+      missing_error: missing_payload["error"].to_s.include?("GitError")
+    }
+  end
+
+  RailsIntegrationSupport.capture_scenario(results, :error_recovery) do
+    broken_error = begin
+      request.get(
+        "/integration",
+        "HTTP_COOKIE" => "rails_wayback_ref=#{broken_historical_sha}; rails_wayback_branch=main"
+      )
+      nil
+    rescue StandardError => error
+      error
+    end
+    recovery_response = request.get(
+      "/integration?_wayback_ref=#{good_historical_sha}&_wayback_branch=main"
+    )
+
+    {
+      incompatible_view_error: broken_error &&
+        RailsIntegrationSupport.exception_messages(broken_error)
+                               .include?("helper_removed_from_current_application"),
+      subsequent_request_succeeds: recovery_response.status == 200 &&
+        recovery_response.body.include?("Historical view")
+    }
+  end
+
+  RailsIntegrationSupport.capture_scenario(results, :reset_security) do
+    reset_response = request.get(
+      "/rails-wayback/reset?return_to=%2Fintegration",
       "HTTP_COOKIE" => "rails_wayback_ref=#{broken_historical_sha}; rails_wayback_branch=main"
     )
-    nil
-  rescue StandardError => error
-    error
+    reset_cookies = Array(reset_response.headers["set-cookie"]).join("\n")
+    unsafe_response = request.get(
+      "/rails-wayback/reset?return_to=https%3A%2F%2Fevil.example%2Fescape"
+    )
+    unsafe_location = URI.parse(unsafe_response.headers.fetch("location"))
+
+    {
+      status: reset_response.status,
+      clears_ref_cookie: reset_cookies.include?("rails_wayback_ref=") &&
+        reset_cookies.include?("max-age=0"),
+      clears_branch_cookie: reset_cookies.include?("rails_wayback_branch=") &&
+        reset_cookies.include?("max-age=0"),
+      rejects_external_return: unsafe_location.host == "example.org" &&
+        unsafe_location.path == "/"
+    }
   end
-  broken_view_error = broken_error &&
-                      RailsIntegrationSupport.exception_messages(broken_error)
-                                             .include?("helper_removed_from_current_application")
 
-  reset_response = request.get(
-    "/rails-wayback/reset?return_to=%2Fintegration",
-    "HTTP_COOKIE" => "rails_wayback_ref=#{broken_historical_sha}; rails_wayback_branch=main"
-  )
-  reset_cookies = Array(reset_response.headers["set-cookie"]).join("\n")
-  unsafe_reset_response = request.get(
-    "/rails-wayback/reset?return_to=https%3A%2F%2Fevil.example%2Fescape"
-  )
-  unsafe_location = URI.parse(unsafe_reset_response.headers.fetch("location"))
+  RailsIntegrationSupport.capture_scenario(results, :render_provenance) do
+    response = request.get(
+      "/integration?_wayback_ref=#{good_historical_sha}&_wayback_branch=main"
+    )
 
-  mixed_response = request.get(
-    "/integration?_wayback_ref=#{good_historical_sha}&_wayback_branch=main"
-  )
-  cookie_response = request.get(
-    "/integration",
-    "HTTP_COOKIE" => "rails_wayback_ref=#{good_historical_sha}; rails_wayback_branch=main"
-  )
-  precedence_response = request.get(
-    "/integration?_wayback_ref=#{good_historical_sha}&_wayback_branch=main",
-    "HTTP_COOKIE" => "rails_wayback_ref=#{broken_historical_sha}; rails_wayback_branch=other"
-  )
-  unknown_ref_response = request.get("/integration?_wayback_ref=missing-ref")
-  live_response = request.get("/integration")
+    {
+      mixed_preview: response.body.include?('data-preview-mode="mixed"'),
+      historical_partial_tracked: response.body.include?("Historical partial"),
+      historical_collection_tracked: response.body.include?("3 historical templates"),
+      current_layout_tracked: response.body.include?("1 current fallback")
+    }
+  end
 
-  puts JSON.generate(
-    disabled_status: disabled_response.status,
-    disabled_uses_current_view: disabled_response.body.include?("Current view"),
-    disabled_bar_absent: !disabled_response.body.include?('id="rails-wayback-bar"'),
-    disabled_ref_header_absent: RailsIntegrationSupport.response_header(
-      disabled_response,
-      RailsWayback::ControllerExtensions::RESPONSE_HEADER
-    ).nil?,
-    branches_status: branches_response.status,
-    branches_current_branch: branches_payload["current_branch"],
-    branches_current_commit: branches_payload["current_commit"],
-    branches_include_main: branches_payload.fetch("branches").include?("main"),
-    branches_include_nested: branches_payload.fetch("branches").include?("feature/nested"),
-    commits_status: commits_response.status,
-    commits_branch: commits_payload["branch"],
-    commits_include_historical: commits_payload.fetch("commits").any? do |commit|
-      commit["sha"] == good_historical_sha && commit["subject"] == "historical compatible view"
-    end,
-    missing_commits_status: missing_commits_response.status,
-    missing_commits_empty: missing_commits_payload["commits"] == [],
-    missing_commits_error: missing_commits_payload["error"].to_s.include?("GitError"),
-    broken_view_error: !!broken_view_error,
-    reset_status: reset_response.status,
-    cleared_ref_cookie: reset_cookies.include?("rails_wayback_ref=") && reset_cookies.include?("max-age=0"),
-    cleared_branch_cookie: reset_cookies.include?("rails_wayback_branch=") && reset_cookies.include?("max-age=0"),
-    mixed_preview: mixed_response.body.include?('data-preview-mode="mixed"'),
-    historical_partial_tracked: mixed_response.body.include?("Historical partial"),
-    historical_collection_tracked: mixed_response.body.include?("3 historical templates"),
-    current_layout_tracked: mixed_response.body.include?("1 current fallback"),
-    query_travel_header: RailsIntegrationSupport.response_header(
-      mixed_response,
-      RailsWayback::ControllerExtensions::RESPONSE_HEADER
-    ) == good_historical_sha,
-    cookie_travel_rendered: cookie_response.body.include?("Historical view"),
-    cookie_travel_header: RailsIntegrationSupport.response_header(
-      cookie_response,
-      RailsWayback::ControllerExtensions::RESPONSE_HEADER
-    ) == good_historical_sha,
-    query_precedes_cookie: precedence_response.body.include?("Historical view") &&
-                           RailsIntegrationSupport.response_header(
-                             precedence_response,
-                             RailsWayback::ControllerExtensions::RESPONSE_HEADER
-                           ) == good_historical_sha,
-    unknown_ref_status: unknown_ref_response.status,
-    unknown_ref_uses_current_view: unknown_ref_response.body.include?("Current view"),
-    unknown_ref_header: RailsIntegrationSupport.response_header(
-      unknown_ref_response,
-      RailsWayback::ControllerExtensions::RESPONSE_HEADER
-    ) == "error:RailsWayback::RefNotFoundError",
-    external_return_rejected: unsafe_location.host == "example.org" && unsafe_location.path == "/",
-    live_status: live_response.status,
-    live_uses_current_view: live_response.body.include?("Current view"),
-    expected_current_sha: branches_payload["current_commit"] == current_sha
-  )
+  RailsIntegrationSupport.capture_scenario(results, :travel_selection) do
+    query_response = request.get(
+      "/integration?_wayback_ref=#{good_historical_sha}&_wayback_branch=main"
+    )
+    cookie_response = request.get(
+      "/integration",
+      "HTTP_COOKIE" => "rails_wayback_ref=#{good_historical_sha}; rails_wayback_branch=main"
+    )
+    precedence_response = request.get(
+      "/integration?_wayback_ref=#{good_historical_sha}&_wayback_branch=main",
+      "HTTP_COOKIE" => "rails_wayback_ref=#{broken_historical_sha}; rails_wayback_branch=other"
+    )
+    unknown_response = request.get("/integration?_wayback_ref=missing-ref")
+
+    {
+      query_header: RailsIntegrationSupport.response_header(
+        query_response,
+        RailsWayback::ControllerExtensions::RESPONSE_HEADER
+      ) == good_historical_sha,
+      cookie_rendered: cookie_response.body.include?("Historical view"),
+      cookie_header: RailsIntegrationSupport.response_header(
+        cookie_response,
+        RailsWayback::ControllerExtensions::RESPONSE_HEADER
+      ) == good_historical_sha,
+      query_precedes_cookie: precedence_response.body.include?("Historical view") &&
+        RailsIntegrationSupport.response_header(
+          precedence_response,
+          RailsWayback::ControllerExtensions::RESPONSE_HEADER
+        ) == good_historical_sha,
+      unknown_status: unknown_response.status,
+      unknown_uses_current_view: unknown_response.body.include?("Current view"),
+      unknown_header: RailsIntegrationSupport.response_header(
+        unknown_response,
+        RailsWayback::ControllerExtensions::RESPONSE_HEADER
+      ) == "error:RailsWayback::RefNotFoundError"
+    }
+  end
+
+  RailsIntegrationSupport.capture_scenario(results, :live_rendering) do
+    response = request.get("/integration")
+
+    {
+      status: response.status,
+      uses_current_view: response.body.include?("Current view")
+    }
+  end
+
+  puts JSON.generate(results)
 end
