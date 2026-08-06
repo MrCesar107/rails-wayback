@@ -25,12 +25,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Raised the compatibility baseline to Ruby 3.3 and Rails 8.0.
 - Added Appraisal dependency sets and a complete CI matrix for Ruby 3.3, 3.4,
   and 4.0 against Rails 8.0 and 8.1.
+- Expanded real-Rails integration coverage for engine endpoints, travel request
+  precedence, disabled behavior, response headers, and invalid references.
+- Added install generator coverage for generated files and repeat-run
+  idempotency.
 
 ### Fixed
 
 - Made ref materialization transactional and concurrency-safe by validating the
   extraction pipeline, building in temporary directories, locking per ref, and
   coordinating cache cleanup with active builds.
+- Made install generator duplicate checks respect the configured destination
+  root instead of the invoking process's working directory.
 
 ## [0.1.1] - 2026-08-05
 

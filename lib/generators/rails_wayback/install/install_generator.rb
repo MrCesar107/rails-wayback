@@ -17,8 +17,9 @@ module RailsWayback
         ROUTE
 
         routes_file = "config/routes.rb"
+        routes_path = File.join(destination_root, routes_file)
 
-        if File.file?(routes_file) && File.read(routes_file).include?("RailsWayback::Engine")
+        if File.file?(routes_path) && File.read(routes_path).include?("RailsWayback::Engine")
           say_status :skip, "RailsWayback::Engine mount already present in #{routes_file}"
         else
           route route_snippet.strip
@@ -27,10 +28,11 @@ module RailsWayback
 
       def update_gitignore
         gitignore = ".gitignore"
+        gitignore_path = File.join(destination_root, gitignore)
         entry = "/tmp/rails_wayback/\n"
-        if File.file?(gitignore) && !File.read(gitignore).include?("tmp/rails_wayback")
+        if File.file?(gitignore_path) && !File.read(gitignore_path).include?("tmp/rails_wayback")
           append_to_file(gitignore, entry)
-        elsif !File.file?(gitignore)
+        elsif !File.file?(gitignore_path)
           create_file(gitignore, entry)
         end
       end
