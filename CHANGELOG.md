@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added provenance tracking for templates, partials, layouts, and collections,
   including toolbar warnings for mixed historical/current previews.
 
+### Fixed
+
+- Made ref materialization transactional and concurrency-safe by validating the
+  extraction pipeline, building in temporary directories, locking per ref, and
+  coordinating cache cleanup with active builds.
+
 ## [0.1.1] - 2026-08-05
 
 ### Changed

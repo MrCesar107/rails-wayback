@@ -11,6 +11,7 @@ module RailsWayback
   class Error < StandardError; end
   class DisabledError < Error; end
   class RefNotFoundError < Error; end
+  class MaterializationError < Error; end
   class RenderError < Error; end
 
   # Thread-local key where the render subscriber accumulates the

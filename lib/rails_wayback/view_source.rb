@@ -3,20 +3,22 @@
 require "fileutils"
 require "open3"
 require "pathname"
+require "tempfile"
+require "tmpdir"
 
 module RailsWayback
-  # Materialises the view/asset directories of a given git ref into a
-  # sandbox under tmp/, so a controller can prepend that sandbox as a
-  # view path and render the historical templates.
+  # Materialises the view/asset directories of a given git ref into the
+  # refs cache under tmp/, so a controller can prepend those directories
+  # as view paths and render the historical templates.
   #
   # Only the directories listed in `configuration.view_paths` and
   # `configuration.asset_paths` are pulled from the ref. Nothing is
   # executed, and the developer's real files are never mutated.
   class ViewSource
     # Bumped whenever the materialization format changes so stale
-    # sandboxes from earlier gem versions get rebuilt instead of
+    # cached refs from earlier gem versions get rebuilt instead of
     # being reused.
-    MATERIALIZATION_VERSION = "2"
+    MATERIALIZATION_VERSION = "3"
 
     attr_reader :configuration, :git
 
@@ -28,13 +30,18 @@ module RailsWayback
     def materialize(ref)
       sha = git.resolve_ref(ref)
       target = configuration.refs_cache_path.join(sha)
-      return target if fresh?(target, sha)
 
-      FileUtils.rm_rf(target)
-      FileUtils.mkdir_p(target)
-      tracked_paths.each { |path| extract_path(sha, path, target) }
-      write_marker(target, sha)
-      target
+      with_cache_lock(File::LOCK_SH) do
+        next target if fresh?(target, sha)
+
+        with_ref_lock(sha) do
+          # Another process may have completed the same ref while this
+          # process was waiting for the per-ref lock.
+          next target if fresh?(target, sha)
+
+          build_materialization(sha, target)
+        end
+      end
     end
 
     def view_root_for(ref)
@@ -43,7 +50,9 @@ module RailsWayback
     end
 
     def cleanup!
-      FileUtils.rm_rf(configuration.refs_cache_path)
+      with_cache_lock(File::LOCK_EX) do
+        FileUtils.rm_rf(configuration.refs_cache_path)
+      end
     end
 
     private
@@ -69,6 +78,30 @@ module RailsWayback
       marker_path(target).write("#{MATERIALIZATION_VERSION}:#{sha}")
     end
 
+    def build_materialization(sha, target)
+      refs_root = configuration.refs_cache_path
+      FileUtils.mkdir_p(refs_root)
+      staging = Pathname.new(Dir.mktmpdir(".#{sha}-building-", refs_root.to_s))
+
+      begin
+        tracked_paths.each { |path| extract_path(sha, path, staging) }
+        write_marker(staging, sha)
+
+        # Keep an existing materialization available until the replacement is
+        # complete. A failed extraction never removes the last known cache.
+        FileUtils.rm_rf(target)
+        File.rename(staging, target)
+        target
+      rescue MaterializationError
+        raise
+      rescue SystemCallError => e
+        raise MaterializationError,
+              "Could not materialize git ref #{sha}: #{e.message}"
+      ensure
+        FileUtils.rm_rf(staging) if staging.exist?
+      end
+    end
+
     # Uses `git archive | tar -x` to extract a subtree at a given ref.
     # This avoids the pitfalls of hand-rolled ls-tree + show pipelines
     # (encoding, binary files, missing directories, permissions) and
@@ -83,7 +116,20 @@ module RailsWayback
       archive_cmd = ["git", "-C", git.root.to_s, "archive", "--format=tar", spec]
       tar_cmd     = ["tar", "-xf", "-", "-C", dest.to_s]
 
-      Open3.pipeline(archive_cmd, tar_cmd)
+      Tempfile.create(["rails-wayback-extraction", ".log"]) do |errors|
+        statuses = Open3.pipeline(archive_cmd, tar_cmd, err: errors)
+        return if statuses.all?(&:success?)
+
+        errors.flush
+        errors.rewind
+        details = errors.read.strip
+        exits = statuses.map { |status| status.exitstatus || "unknown" }.join(", ")
+        message = "Could not extract #{spec} (pipeline exit statuses: #{exits})"
+        message = "#{message}: #{details}" unless details.empty?
+        raise MaterializationError, message
+      end
+    rescue SystemCallError => e
+      raise MaterializationError, "Could not extract #{spec}: #{e.message}"
     end
 
     def tree_exists?(sha, path)
@@ -94,6 +140,34 @@ module RailsWayback
         "git", "-C", git.root.to_s, "cat-file", "-t", "#{sha}:#{path}"
       )
       status.success? && out.strip == "tree"
+    end
+
+    def with_cache_lock(mode, &block)
+      with_file_lock(configuration.cache_root_path.join(".refs.lock"), mode, &block)
+    end
+
+    def with_ref_lock(sha, &block)
+      path = configuration.cache_root_path.join("locks", "#{sha}.lock")
+      with_file_lock(path, File::LOCK_EX, &block)
+    end
+
+    def with_file_lock(path, mode)
+      file = acquire_file_lock(path, mode)
+      yield
+    ensure
+      file&.close
+    end
+
+    def acquire_file_lock(path, mode)
+      FileUtils.mkdir_p(path.dirname)
+      file = File.open(path, File::RDWR | File::CREAT, 0o644)
+      return file if file.flock(mode)
+
+      file.close
+      raise MaterializationError, "Could not lock the refs cache at #{path}"
+    rescue SystemCallError => e
+      file&.close
+      raise MaterializationError, "Could not lock the refs cache: #{e.message}"
     end
   end
 end
