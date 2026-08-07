@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 RailsWayback::Engine.routes.draw do
+  get "assets/bar.css", to: "assets#stylesheet", format: false, as: :bar_stylesheet
+  get "assets/bar.js", to: "assets#javascript", format: false, as: :bar_javascript
+
   # `format: false` keeps Rails from parsing a trailing `.json` as an
   # implicit format, and the glob `*branch` allows branch names that
   # contain slashes (e.g. "feature/foo"). The controller trims a

@@ -32,6 +32,10 @@ Metrics/MethodLength:
 
 Metrics/ParameterLists:
   Max: 6
+  # The renderer's explicit keyword interface keeps middleware-provided state
+  # visible and rejects misspelled options.
+  Exclude:
+    - "lib/rails_wayback/bar_renderer.rb"
 
 Metrics/PerceivedComplexity:
   Max: 10

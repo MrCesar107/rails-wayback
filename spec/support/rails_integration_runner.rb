@@ -106,6 +106,14 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
     config.hosts.clear
     config.action_dispatch.show_exceptions = :none
     config.action_controller.allow_forgery_protection = false
+    config.content_security_policy do |policy|
+      policy.default_src :none
+      policy.style_src :self
+      policy.script_src :self
+      policy.connect_src :self
+    end
+    config.content_security_policy_nonce_generator = ->(_request) { "rails-wayback-test-nonce" }
+    config.content_security_policy_nonce_directives = %w[script-src style-src]
   end
   Object.const_set(:RailsWaybackIntegrationApplication, application_class)
 
@@ -158,6 +166,41 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
   end
 
   RailsWayback.enable!
+
+  RailsIntegrationSupport.capture_scenario(results, :csp_assets) do
+    response = request.get("/integration")
+    stylesheet = request.get("/rails-wayback/assets/bar.css?v=#{RailsWayback::VERSION}")
+    javascript = request.get("/rails-wayback/assets/bar.js?v=#{RailsWayback::VERSION}")
+    csp_header = RailsIntegrationSupport.response_header(response, "Content-Security-Policy").to_s
+
+    {
+      csp_nonce_in_header: csp_header.include?("'nonce-rails-wayback-test-nonce'"),
+      csp_nonce_on_asset_tags: response.body.scan('nonce="rails-wayback-test-nonce"').size == 2,
+      external_stylesheet: response.body.include?(
+        %(/rails-wayback/assets/bar.css?v=#{RailsWayback::VERSION})
+      ),
+      external_javascript: response.body.include?(
+        %(/rails-wayback/assets/bar.js?v=#{RailsWayback::VERSION})
+      ),
+      inline_styles_absent: !response.body.include?("<style"),
+      inline_javascript_absent: !response.body.include?("(function ()"),
+      stylesheet_status: stylesheet.status,
+      stylesheet_content_type: stylesheet["Content-Type"].to_s.start_with?("text/css"),
+      stylesheet_body: stylesheet.body == RailsWayback::BarRenderer::STYLES,
+      javascript_status: javascript.status,
+      javascript_content_type: javascript["Content-Type"].to_s.start_with?("application/javascript"),
+      javascript_body: javascript.body == RailsWayback::BarRenderer::SCRIPT,
+      immutable_cache: [stylesheet, javascript].all? do |asset|
+        asset["Cache-Control"].to_s.include?("immutable")
+      end,
+      nosniff: [stylesheet, javascript].all? do |asset|
+        asset["X-Content-Type-Options"] == "nosniff"
+      end,
+      asset_responses_exclude_bar: [stylesheet, javascript].none? do |asset|
+        asset.body.include?('id="rails-wayback-bar"')
+      end
+    }
+  end
 
   RailsIntegrationSupport.capture_scenario(results, :response_safety) do
     head_response = request.request("HEAD", "/integration")

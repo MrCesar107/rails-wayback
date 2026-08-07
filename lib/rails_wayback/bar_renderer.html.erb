@@ -1,4 +1,4 @@
-<style data-rails-wayback><%= styles %></style>
+<link rel="stylesheet" href="<%= escape(stylesheet_url) %>" data-rails-wayback<%= nonce_attribute %>>
 <div id="rails-wayback-bar" data-mount="<%= escape(@engine_mount) %>"
      data-branch="<%= escape(@current_branch) %>"
      data-commit="<%= escape(@current_commit) %>"
@@ -20,4 +20,4 @@
   </div>
   <%= diff_summary_html %>
 </div>
-<script data-rails-wayback><%= script %></script>
+<script src="<%= escape(javascript_url) %>" defer data-rails-wayback<%= nonce_attribute %>></script>

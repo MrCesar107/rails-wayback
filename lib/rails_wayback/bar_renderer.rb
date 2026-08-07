@@ -1,26 +1,26 @@
 # frozen_string_literal: true
 
-require "json"
 require "cgi"
 require "erb"
+require "rails_wayback/version"
 
 module RailsWayback
-  # Builds the HTML/CSS/JS payload that the middleware injects into
-  # every HTML response so the developer can travel from any page of
-  # their app without visiting a dedicated route.
+  # Builds the HTML payload that the middleware injects into every HTML
+  # response and references the toolbar's same-origin CSS and JavaScript.
   class BarRenderer
     TEMPLATE = ERB.new(File.read(File.expand_path("bar_renderer.html.erb", __dir__))).freeze
     STYLES = File.read(File.expand_path("bar_renderer.css", __dir__)).freeze
     SCRIPT = File.read(File.expand_path("bar_renderer.js", __dir__)).freeze
 
     def initialize(current_branch:, current_commit:, active_ref: nil, active_branch: nil,
-                   engine_mount: "/rails-wayback", diff_info: nil)
+                   engine_mount: "/rails-wayback", diff_info: nil, csp_nonce: nil)
       @current_branch = current_branch
       @current_commit = current_commit
       @active_ref = active_ref
       @active_branch = active_branch
-      @engine_mount = engine_mount
+      @engine_mount = normalize_mount(engine_mount)
       @diff_info = diff_info
+      @csp_nonce = csp_nonce.to_s
     end
 
     def render
@@ -111,12 +111,28 @@ module RailsWayback
       HTML
     end
 
-    def styles
-      STYLES
+    def stylesheet_url
+      asset_url("bar.css")
     end
 
-    def script
-      SCRIPT
+    def javascript_url
+      asset_url("bar.js")
+    end
+
+    def asset_url(filename)
+      "#{@engine_mount}/assets/#{filename}?v=#{RailsWayback::VERSION}"
+    end
+
+    def nonce_attribute
+      return "" if @csp_nonce.empty?
+
+      %( nonce="#{escape(@csp_nonce)}")
+    end
+
+    def normalize_mount(value)
+      mount = value.to_s
+      mount = "/rails-wayback" if mount.empty?
+      mount.sub(%r{/+\z}, "")
     end
   end
 end

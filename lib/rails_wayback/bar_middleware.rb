@@ -202,7 +202,8 @@ module RailsWayback
         active_ref: active_ref,
         active_branch: active_branch,
         engine_mount: engine_mount,
-        diff_info: active_ref ? build_diff_info(git, active_ref, tracker) : nil
+        diff_info: active_ref ? build_diff_info(git, active_ref, tracker) : nil,
+        csp_nonce: content_security_policy_nonce(env)
       )
       renderer.render
     rescue StandardError => e
@@ -214,6 +215,15 @@ module RailsWayback
       git.public_send(method)
     rescue StandardError
       ""
+    end
+
+    def content_security_policy_nonce(env)
+      return unless defined?(ActionDispatch::Request)
+
+      request = ActionDispatch::Request.new(env)
+      request.content_security_policy_nonce if request.respond_to?(:content_security_policy_nonce)
+    rescue StandardError
+      nil
     end
 
     # Determines the branch label to show in the bar while traveling.

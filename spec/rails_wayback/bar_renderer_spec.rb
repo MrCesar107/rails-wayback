@@ -20,6 +20,24 @@ RSpec.describe RailsWayback::BarRenderer do
     expect(html).to include('data-mount="/rails-wayback"')
     expect(html).to include("data-rw-travel")
     expect(html).to include("data-rw-reset")
+    expect(html).to include(%(href="/rails-wayback/assets/bar.css?v=#{RailsWayback::VERSION}"))
+    expect(html).to include(%(src="/rails-wayback/assets/bar.js?v=#{RailsWayback::VERSION}"))
+    expect(html).not_to include("<style")
+    expect(html).not_to include("(function ()")
+  end
+
+  it "normalizes custom mounts and escapes a CSP nonce on both asset tags" do
+    html = described_class.new(
+      current_branch: "main",
+      current_commit: "abc1234",
+      engine_mount: "/developer/wayback/",
+      csp_nonce: %(nonce"><script>)
+    ).render
+
+    expect(html).to include(%(href="/developer/wayback/assets/bar.css?v=#{RailsWayback::VERSION}"))
+    expect(html).to include(%(src="/developer/wayback/assets/bar.js?v=#{RailsWayback::VERSION}"))
+    expect(html.scan(%(nonce="nonce&quot;&gt;&lt;script&gt;")).size).to eq(2)
+    expect(html).not_to include(%(nonce="nonce"><script>"))
   end
 
   it "labels the dropdowns as 'Rendering ...' while traveling and 'Current ...' otherwise" do

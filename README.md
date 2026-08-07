@@ -119,8 +119,11 @@ default, even if its toggle file exists. Adding another environment is an
 explicit opt-in; historical templates execute inside the host Rails process,
 so only trusted refs should be used. The response-size limit applies only to
 toolbar injection; streaming, encoded, file, partial, and larger responses are
-returned untouched. Everything above has a sensible default. Delete the
-initializer if you don't need to change anything.
+returned untouched. Toolbar CSS and JavaScript are served from the mounted
+engine, so CSP policies should allow same-origin styles, scripts, and fetches.
+Rails-generated CSP nonces are copied to both asset tags automatically.
+Everything above has a sensible default. Delete the initializer if you don't
+need to change anything.
 
 ## Compatibility
 

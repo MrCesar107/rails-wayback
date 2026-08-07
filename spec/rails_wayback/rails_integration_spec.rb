@@ -44,6 +44,26 @@ RSpec.describe "RailsWayback Rails integration" do
     )
   end
 
+  it "serves external toolbar assets that work with Rails CSP nonces" do
+    expect(scenario("csp_assets")).to include(
+      "csp_nonce_in_header" => true,
+      "csp_nonce_on_asset_tags" => true,
+      "external_stylesheet" => true,
+      "external_javascript" => true,
+      "inline_styles_absent" => true,
+      "inline_javascript_absent" => true,
+      "stylesheet_status" => 200,
+      "stylesheet_content_type" => true,
+      "stylesheet_body" => true,
+      "javascript_status" => 200,
+      "javascript_content_type" => true,
+      "javascript_body" => true,
+      "immutable_cache" => true,
+      "nosniff" => true,
+      "asset_responses_exclude_bar" => true
+    )
+  end
+
   it "preserves HEAD, fragment, and lazy enumerable responses" do
     expect(scenario("response_safety")).to include(
       "head_status" => 200,
