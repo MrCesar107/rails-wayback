@@ -2,7 +2,9 @@
 
 require "rails_wayback/version"
 require "rails_wayback/configuration"
+require "rails_wayback/render_context"
 require "rails_wayback/render_provenance"
+require "rails_wayback/render_tracker"
 require "rails_wayback/toggle"
 require "rails_wayback/git"
 require "rails_wayback/view_source"
@@ -14,11 +16,6 @@ module RailsWayback
   class MaterializationError < Error; end
   class RenderError < Error; end
 
-  # Thread-local key where the render subscriber accumulates the
-  # `identifier` of every template resolved during a single request.
-  # The middleware resets this at the start of each request and reads
-  # it back to report per-page diff coverage in the bar.
-  RENDER_TRACKER_KEY = :rails_wayback_rendered_templates
   RENDER_EVENTS = %w[
     render_template.action_view
     render_partial.action_view

@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Scoped render provenance to a request-owned, fiber-aware tracker so async
+  rendering cannot leak or lose toolbar diagnostics across request contexts.
 - Made toolbar injection Rack-compliant and limited it to complete, bounded,
   unencoded buffered HTML responses, preserving streaming, file, partial,
   attachment, and otherwise non-transformable responses.

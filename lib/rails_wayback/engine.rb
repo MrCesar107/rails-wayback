@@ -40,11 +40,12 @@ module RailsWayback
             "[rails-wayback] #{event.name} #{origin.to_s.upcase}: #{identifier}"
           )
 
-          # Per-request tracker so the middleware can distinguish historical
-          # templates from current-tree fallbacks. Middleware clears this at
-          # the start of every request.
-          tracker = Thread.current[RailsWayback::RENDER_TRACKER_KEY] ||= []
-          tracker << { event: event.name, identifier: identifier }
+          # Notifications outside the middleware's request scope are logged
+          # but deliberately excluded from toolbar provenance.
+          RailsWayback::RenderContext.current&.record(
+            event: event.name,
+            identifier: identifier
+          )
         end
       end
     end

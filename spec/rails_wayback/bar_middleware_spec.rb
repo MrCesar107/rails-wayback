@@ -97,17 +97,16 @@ RSpec.describe RailsWayback::BarMiddleware do
       end
     end
 
-    it "resets the per-request render tracker before invoking the app" do
+    it "owns and closes a request tracker without leaking its context" do
       SpecSupport.with_tmp_root do |root|
         SpecSupport.build_git_repo(root)
         SpecSupport.commit_file(root, "README.md", "hi", message: "init")
         RailsWayback.enable!
 
-        Thread.current[RailsWayback::RENDER_TRACKER_KEY] = ["stale/from/previous/request.html.erb"]
-
-        observed = nil
+        captured = nil
         capturing_app = lambda do |_env|
-          observed = Thread.current[RailsWayback::RENDER_TRACKER_KEY].dup
+          captured = RailsWayback::RenderContext.current
+          captured.record(event: "template", identifier: "/app/views/letters/index.html.erb")
           [200, { "Content-Type" => "text/html; charset=utf-8" }, [downstream_body]]
         end
         described_class.new(capturing_app).call(
@@ -116,7 +115,32 @@ RSpec.describe RailsWayback::BarMiddleware do
           "REQUEST_METHOD" => "GET"
         )
 
-        expect(observed).to eq([])
+        expect(captured).to be_a(RailsWayback::RenderTracker)
+        expect(captured.entries.size).to eq(1)
+        expect(captured).to be_closed
+        expect(RailsWayback::RenderContext.current).to be_nil
+      end
+    end
+
+    it "closes the request tracker and clears its context when the app raises" do
+      with_enabled_wayback do
+        captured = nil
+        failing_app = lambda do |_env|
+          captured = RailsWayback::RenderContext.current
+          raise "downstream failure"
+        end
+        failing_middleware = described_class.new(failing_app)
+
+        expect do
+          failing_middleware.call(
+            "PATH_INFO" => "/letters",
+            "QUERY_STRING" => "",
+            "REQUEST_METHOD" => "GET"
+          )
+        end.to raise_error("downstream failure")
+
+        expect(captured).to be_closed
+        expect(RailsWayback::RenderContext.current).to be_nil
       end
     end
 

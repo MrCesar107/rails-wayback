@@ -39,11 +39,15 @@ module RailsWayback
     end
 
     def call(env)
-      # Always reset the per-request render tracker before invoking the
-      # app so the middleware can accurately report which templates the
-      # current page rendered.
-      Thread.current[RailsWayback::RENDER_TRACKER_KEY] = []
+      tracker = RailsWayback::RenderTracker.new
+      RailsWayback::RenderContext.with(tracker) { call_with_tracker(env, tracker) }
+    ensure
+      tracker&.close
+    end
 
+    private
+
+    def call_with_tracker(env, tracker)
       response = @app.call(env)
       status, headers, body = response
       return response unless inject?(env, status, headers, body)
@@ -54,14 +58,12 @@ module RailsWayback
       html = parts.join
       return [status, headers, parts] unless injectable_document?(html)
 
-      snippet = build_snippet(env)
+      snippet = build_snippet(env, tracker)
       return [status, headers, parts] if snippet.empty?
 
       new_html = inject(html, snippet)
       [status, repaired_headers(headers, new_html), [new_html]]
     end
-
-    private
 
     def inject?(env, status, headers, body)
       RailsWayback.enabled? &&
@@ -189,7 +191,7 @@ module RailsWayback
       headers.delete(key) if key
     end
 
-    def build_snippet(env)
+    def build_snippet(env, tracker)
       git = RailsWayback::Git.new
       active_ref = extract_active_ref(env)
       active_branch = active_ref ? active_branch_for(env, git, active_ref) : nil
@@ -200,7 +202,7 @@ module RailsWayback
         active_ref: active_ref,
         active_branch: active_branch,
         engine_mount: engine_mount,
-        diff_info: active_ref ? build_diff_info(git, active_ref) : nil
+        diff_info: active_ref ? build_diff_info(git, active_ref, tracker) : nil
       )
       renderer.render
     rescue StandardError => e
@@ -234,13 +236,13 @@ module RailsWayback
     # actually swaps. Rendered paths are split by origin so the toolbar can
     # warn when a successful page silently mixes historical templates with
     # current-tree fallbacks.
-    def build_diff_info(git, ref)
+    def build_diff_info(git, ref, tracker)
       config = RailsWayback.configuration
       tracked_paths = (config.view_paths + config.asset_paths).uniq
       changed_files = git.diff_paths(ref, paths: tracked_paths)
 
       rendered = RailsWayback::RenderProvenance.paths_by_origin(
-        Thread.current[RailsWayback::RENDER_TRACKER_KEY],
+        tracker.entries,
         configuration: config
       )
       rendered_from_ref = rendered[:historical]
