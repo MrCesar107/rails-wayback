@@ -10,7 +10,7 @@ module RailsWayback
   #   rails-wayback status  # print current state
   #   rails-wayback clean   # remove the ref cache under tmp/
   class CLI
-    COMMANDS = %w[on off status clean doctor help].freeze
+    COMMANDS = %w[on off status cache prune clean doctor help].freeze
     DOCTOR_LABELS = { ok: "OK", warning: "WARN", error: "ERROR" }.freeze
 
     def self.start(argv, stdout: $stdout, stderr: $stderr)
@@ -28,6 +28,8 @@ module RailsWayback
       when "on"     then cmd_on
       when "off"    then cmd_off
       when "status" then cmd_status
+      when "cache"  then cmd_cache
+      when "prune"  then cmd_prune
       when "clean"  then cmd_clean
       when "doctor" then cmd_doctor
       when "help", "--help", "-h" then cmd_help
@@ -71,6 +73,26 @@ module RailsWayback
       0
     end
 
+    def cmd_cache
+      snapshot = RailsWayback::ViewSource.new.cache_snapshot
+      @stdout.puts cache_summary(snapshot)
+      0
+    rescue RailsWayback::MaterializationError => e
+      @stderr.puts "rails-wayback: cannot inspect cache: #{e.message}"
+      1
+    end
+
+    def cmd_prune
+      result = RailsWayback::ViewSource.new.prune!
+      @stdout.puts "rails-wayback: pruned #{result.removed.size} ref(s), " \
+                   "freed #{format_bytes(result.removed_size_bytes)}"
+      @stdout.puts cache_summary(result.snapshot)
+      result.limits_satisfied? ? 0 : 1
+    rescue RailsWayback::MaterializationError => e
+      @stderr.puts "rails-wayback: cannot prune cache: #{e.message}"
+      1
+    end
+
     def cmd_doctor
       result = RailsWayback::Doctor.new.call
       @stdout.puts "rails-wayback doctor"
@@ -89,11 +111,35 @@ module RailsWayback
           on       Enable the wayback UI in this Rails app
           off      Disable the wayback UI
           status   Print whether the UI is currently enabled
+          cache    Print ref cache usage and configured limits
+          prune    Remove least-recently-used refs until limits are satisfied
           clean    Remove the tmp/rails_wayback ref cache
           doctor   Check dependencies and host application readiness
           help     Show this help
       HELP
       0
+    end
+
+    def cache_summary(snapshot)
+      config = RailsWayback.configuration
+      count_limit = config.max_cached_refs.nil? ? "unlimited" : config.max_cached_refs
+      byte_limit = config.max_cache_bytes.nil? ? "unlimited" : format_bytes(config.max_cache_bytes)
+      "rails-wayback cache: #{snapshot.ref_count} ref(s), #{format_bytes(snapshot.size_bytes)}, " \
+        "#{snapshot.file_count} file(s); limits: #{count_limit} refs / #{byte_limit}"
+    end
+
+    def format_bytes(value)
+      bytes = Integer(value)
+      return "#{bytes} B" if bytes < 1024
+
+      units = %w[KiB MiB GiB TiB]
+      amount = bytes / 1024.0
+      unit = units.shift
+      while amount >= 1024 && units.any?
+        amount /= 1024
+        unit = units.shift
+      end
+      format("%<amount>.1f %<unit>s", amount: amount, unit: unit)
     end
   end
 end

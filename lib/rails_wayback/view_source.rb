@@ -5,6 +5,7 @@ require "open3"
 require "pathname"
 require "tempfile"
 require "tmpdir"
+require "rails_wayback/cache_inventory"
 
 module RailsWayback
   # Materialises the view/asset directories of a given git ref into the
@@ -18,13 +19,14 @@ module RailsWayback
     # Bumped whenever the materialization format changes so stale
     # cached refs from earlier gem versions get rebuilt instead of
     # being reused.
-    MATERIALIZATION_VERSION = "3"
+    MATERIALIZATION_VERSION = CacheInventory::MATERIALIZATION_VERSION
 
     attr_reader :configuration, :git
 
     def initialize(configuration: RailsWayback.configuration, git: RailsWayback::Git.new)
       @configuration = configuration
       @git = git
+      @cache_inventory = CacheInventory.new(configuration: configuration)
     end
 
     def materialize(ref)
@@ -32,12 +34,18 @@ module RailsWayback
       target = configuration.refs_cache_path.join(sha)
 
       with_cache_lock(File::LOCK_SH) do
-        next target if fresh?(target, sha)
+        if fresh?(target, sha)
+          touch_access(target)
+          next target
+        end
 
         with_ref_lock(sha) do
           # Another process may have completed the same ref while this
           # process was waiting for the per-ref lock.
-          next target if fresh?(target, sha)
+          if fresh?(target, sha)
+            touch_access(target)
+            next target
+          end
 
           build_materialization(sha, target)
         end
@@ -52,10 +60,21 @@ module RailsWayback
     def cleanup!
       with_cache_lock(File::LOCK_EX) do
         FileUtils.rm_rf(configuration.refs_cache_path)
+        FileUtils.rm_rf(configuration.cache_root_path.join("locks"))
       end
     end
 
+    def cache_snapshot
+      with_cache_lock(File::LOCK_SH) { cache_inventory.snapshot }
+    end
+
+    def prune!(preserve: [])
+      with_cache_lock(File::LOCK_EX) { cache_inventory.prune!(preserve: preserve) }
+    end
+
     private
+
+    attr_reader :cache_inventory
 
     def tracked_paths
       (configuration.view_paths + configuration.asset_paths).uniq
@@ -78,6 +97,14 @@ module RailsWayback
       marker_path(target).write("#{MATERIALIZATION_VERSION}:#{sha}")
     end
 
+    def touch_access(target)
+      FileUtils.touch(marker_path(target))
+    rescue SystemCallError => e
+      if defined?(Rails) && Rails.respond_to?(:logger)
+        Rails.logger.warn("[rails-wayback] could not update cache access time: #{e.message}")
+      end
+    end
+
     def build_materialization(sha, target)
       refs_root = configuration.refs_cache_path
       FileUtils.mkdir_p(refs_root)
@@ -86,6 +113,7 @@ module RailsWayback
       begin
         tracked_paths.each { |path| extract_path(sha, path, staging) }
         write_marker(staging, sha)
+        cache_inventory.write_metadata(staging, sha)
 
         # Keep an existing materialization available until the replacement is
         # complete. A failed extraction never removes the last known cache.

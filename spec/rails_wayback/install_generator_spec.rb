@@ -23,7 +23,11 @@ RSpec.describe RailsWayback::Generators::InstallGenerator do
       gitignore = root.join(".gitignore").read
 
       expect(initializer).to exist
-      expect(initializer.read).to include("RailsWayback.configure")
+      expect(initializer.read).to include(
+        "RailsWayback.configure",
+        "config.max_cached_refs = 25",
+        "config.max_cache_bytes = 512 * 1024 * 1024"
+      )
       expect(routes.scan("mount RailsWayback::Engine").size).to eq(1)
       expect(routes).to include(
         "if defined?(RailsWayback) && RailsWayback.enabled?"

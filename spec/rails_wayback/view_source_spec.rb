@@ -17,6 +17,7 @@ RSpec.describe RailsWayback::ViewSource do
       view_file = sandbox.join("app/views/home/index.html.erb")
       expect(view_file).to exist
       expect(view_file.read).to include("v1")
+      expect(sandbox.join(RailsWayback::CacheInventory::METADATA_NAME)).to exist
     end
   end
 
@@ -30,10 +31,14 @@ RSpec.describe RailsWayback::ViewSource do
       source = described_class.new(configuration: RailsWayback.configuration, git: git)
 
       first_call = source.materialize(sha)
+      marker = first_call.join(RailsWayback::CacheInventory::MARKER_NAME)
+      old_access = Time.at(1).utc
+      File.utime(old_access, old_access, marker)
       expect(source).not_to receive(:extract_path)
       second_call = source.materialize(sha)
 
       expect(second_call).to eq(first_call)
+      expect(marker.mtime).to be > old_access
     end
   end
 
@@ -147,7 +152,8 @@ RSpec.describe RailsWayback::ViewSource do
       second_result = second.value
       expect([first_result, second_result].uniq.size).to eq(1)
       expect(source.extractions).to eq(1)
-      expect(first_result.join(".rails_wayback.sha").read).to eq("3:#{sha}")
+      expect(first_result.join(".rails_wayback.sha").read)
+        .to eq("#{RailsWayback::ViewSource::MATERIALIZATION_VERSION}:#{sha}")
     end
   end
 
@@ -204,6 +210,21 @@ RSpec.describe RailsWayback::ViewSource do
       expect(materialization.value).to be_a(Pathname)
       cleanup.value
       expect(RailsWayback.configuration.refs_cache_path).not_to exist
+    end
+  end
+
+  it "removes ref data and accumulated per-ref lock files during cleanup" do
+    SpecSupport.with_tmp_root do
+      refs = RailsWayback.configuration.refs_cache_path.join("abc")
+      locks = RailsWayback.configuration.cache_root_path.join("locks/abc.lock")
+      FileUtils.mkdir_p(refs)
+      FileUtils.mkdir_p(locks.dirname)
+      locks.write("")
+
+      described_class.new.cleanup!
+
+      expect(RailsWayback.configuration.refs_cache_path).not_to exist
+      expect(RailsWayback.configuration.cache_root_path.join("locks")).not_to exist
     end
   end
 end

@@ -50,12 +50,15 @@ Turn the UI on when you need it, off when you don't:
 bundle exec rails-wayback on      # enable and inject the bar in every page
 bundle exec rails-wayback off     # disable it
 bundle exec rails-wayback status  # print current state
+bundle exec rails-wayback cache   # report ref cache usage and limits
+bundle exec rails-wayback prune   # apply configured LRU cache limits
 bundle exec rails-wayback clean   # drop the tmp/rails_wayback ref cache
 bundle exec rails-wayback doctor  # check dependencies and app readiness
 ```
 
 Same commands as rake tasks: `rake wayback:on`, `wayback:off`,
-`wayback:status`, `wayback:clean`, `wayback:doctor`.
+`wayback:status`, `wayback:cache`, `wayback:prune`, `wayback:clean`,
+`wayback:doctor`.
 
 Run `bin/rails wayback:doctor` from a Rails application to check Git and `tar`,
 the repository root, cache write access, configured view and asset paths, and
@@ -117,6 +120,8 @@ RailsWayback.configure do |config|
   # config.view_paths  = %w[app/views]
   # config.asset_paths = %w[app/assets public]
   # config.max_commits = 50
+  # config.max_cached_refs = 25
+  # config.max_cache_bytes = 512 * 1024 * 1024
   # config.max_response_bytes = 2 * 1024 * 1024
 end
 ```
@@ -142,6 +147,13 @@ engine, so CSP policies should allow same-origin styles, scripts, and fetches.
 Rails-generated CSP nonces are copied to both asset tags automatically.
 Everything above has a sensible default. Delete the initializer if you don't
 need to change anything.
+
+Cached refs use least-recently-used access metadata. `rails-wayback cache`
+reports logical payload size and file count; `rails-wayback prune` removes the
+oldest refs until the configured count and byte limits are met. Pruning is
+manual in this release and should be run when historical requests are not
+actively rendering. `rails-wayback clean` removes all ref data and per-ref lock
+files. Set either cache limit to `nil` to disable it.
 
 ## Compatibility
 

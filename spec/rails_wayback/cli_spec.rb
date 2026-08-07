@@ -57,6 +57,30 @@ RSpec.describe RailsWayback::CLI do
     end
   end
 
+  it "reports cache usage and prunes refs to configured limits" do
+    SpecSupport.with_tmp_root do |root|
+      sha = "a" * 40
+      target = RailsWayback.configuration.refs_cache_path.join(sha)
+      FileUtils.mkdir_p(target)
+      target.join("view.erb").write("cached")
+      target.join(RailsWayback::CacheInventory::MARKER_NAME).write(
+        "#{RailsWayback::CacheInventory::MATERIALIZATION_VERSION}:#{sha}"
+      )
+      RailsWayback::CacheInventory.new.write_metadata(target, sha)
+      RailsWayback.configuration.max_cached_refs = 0
+      RailsWayback.configuration.max_cache_bytes = nil
+      out = StringIO.new
+
+      cache_status = described_class.start(["cache"], stdout: out, stderr: StringIO.new)
+      prune_status = described_class.start(["prune"], stdout: out, stderr: StringIO.new)
+
+      expect(cache_status).to eq(0)
+      expect(prune_status).to eq(0)
+      expect(out.string).to include("1 ref(s)", "6 B", "pruned 1 ref(s)", "0 ref(s)")
+      expect(root.join("tmp/rails_wayback/refs", sha)).not_to exist
+    end
+  end
+
   it "prints doctor checks and returns their exit status" do
     SpecSupport.with_tmp_root do |root|
       SpecSupport.build_git_repo(root)

@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added cache inventory metadata plus `rails-wayback cache` and
+  `rails-wayback prune` commands with configurable LRU count and byte limits.
 - Added `rails-wayback doctor` and `wayback:doctor` diagnostics for external
   tools, repository state, cache permissions, configured paths, and environment.
 - Added RuboCop with Rails, Rake, and RSpec plugins, including local Rake tasks
@@ -40,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Made cache cleanup remove accumulated per-ref lock files as well as extracted
+  ref directories.
 - Served toolbar CSS and JavaScript as versioned same-origin engine resources,
   propagating Rails CSP nonces instead of requiring inline styles and scripts.
 - Scoped render provenance to a request-owned, fiber-aware tracker so async

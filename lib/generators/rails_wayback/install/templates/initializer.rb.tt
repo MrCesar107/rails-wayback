@@ -21,6 +21,10 @@ RailsWayback.configure do |config|
 
   # How many recent commits per branch are shown in the bar dropdown.
   # config.max_commits = 50
+  # Manual `rails-wayback prune` applies both LRU cache limits. Set either
+  # value to nil to disable that limit.
+  # config.max_cached_refs = 25
+  # config.max_cache_bytes = 512 * 1024 * 1024
 
   # Maximum buffered HTML response size that may receive the toolbar.
   # Streaming, encoded, file, and larger responses are always left untouched.
