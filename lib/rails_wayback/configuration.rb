@@ -12,9 +12,11 @@ module RailsWayback
     DEFAULT_MAX_COMMITS = 50
     DEFAULT_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
     DEFAULT_ALLOWED_ENVIRONMENTS = %w[development test].freeze
+    DEFAULT_TRUSTED_REF_PATTERNS = ["refs/heads/*"].freeze
 
     attr_accessor :view_paths, :asset_paths, :max_commits, :allowed_environments,
-                  :max_response_bytes, :app_root, :cache_root, :toggle_file
+                  :max_response_bytes, :trusted_ref_patterns, :app_root,
+                  :cache_root, :toggle_file
 
     def initialize
       @view_paths = DEFAULT_VIEW_PATHS.dup
@@ -22,6 +24,7 @@ module RailsWayback
       @max_commits = DEFAULT_MAX_COMMITS
       @max_response_bytes = DEFAULT_MAX_RESPONSE_BYTES
       @allowed_environments = DEFAULT_ALLOWED_ENVIRONMENTS.dup
+      @trusted_ref_patterns = DEFAULT_TRUSTED_REF_PATTERNS.dup
       @app_root = nil
       @cache_root = nil
       @toggle_file = nil

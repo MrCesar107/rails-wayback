@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Restricted historical rendering to canonical commit SHAs reachable from
+  configurable trusted Git refs, rejecting unsafe selections before extraction.
+- Added a persistent toolbar warning and first-travel confirmation explaining
+  that historical templates execute Ruby with the Rails server's permissions.
 - Restricted activation to the `development` and `test` environments by
   default, with an explicit `allowed_environments` configuration override.
 - Kept render instrumentation inactive whenever Rails Wayback is disabled.

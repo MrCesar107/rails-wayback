@@ -31,11 +31,22 @@ module RailsWayback
       ref = __rails_wayback_ref_from_request
       return unless ref
 
-      dirs = RailsWayback::ViewSource.new.view_root_for(ref)
+      selection = RailsWayback::RefPolicy.new.authorize(ref)
+      request.env[RailsWayback::RefPolicy::ENV_KEY] = selection
+      return reject_wayback_ref(selection) if selection.rejected?
+
+      prepend_wayback_views(selection)
+    rescue RailsWayback::RefNotFoundError, RailsWayback::Git::GitError => e
+      log_warning("#{e.class}: #{e.message}")
+      write_wayback_header("error:#{e.class}")
+    end
+
+    def prepend_wayback_views(selection)
+      dirs = RailsWayback::ViewSource.new.view_root_for(selection.sha)
 
       if dirs.empty?
-        log_warning("no view directories materialised for ref #{ref}")
-        write_wayback_header("empty:#{ref}")
+        log_warning("no view directories materialised for ref #{selection.sha}")
+        write_wayback_header("empty:#{selection.sha}")
         return
       end
 
@@ -44,14 +55,11 @@ module RailsWayback
       # lookup context.
       dirs.each { |dir| prepend_view_path(dir.to_s) }
 
-      @__rails_wayback_active_ref = ref
-      write_wayback_header(ref)
+      @__rails_wayback_active_ref = selection.sha
+      write_wayback_header(selection.sha)
 
-      log_info("prepended #{dirs.size} view path(s) from ref #{ref}")
+      log_info("prepended #{dirs.size} view path(s) from ref #{selection.sha}")
       log_info("resolver order: #{resolver_summary}")
-    rescue RailsWayback::RefNotFoundError, RailsWayback::Git::GitError => e
-      log_warning("#{e.class}: #{e.message}")
-      write_wayback_header("error:#{e.class}")
     end
 
     # Params take precedence for one-off overrides (e.g. a shared URL);
@@ -63,6 +71,13 @@ module RailsWayback
       return from_params unless from_params.empty?
 
       cookies[WAYBACK_COOKIE].to_s.then { |v| v.empty? ? nil : v }
+    end
+
+    def reject_wayback_ref(selection)
+      response.delete_cookie(WAYBACK_COOKIE, path: "/")
+      response.delete_cookie("rails_wayback_branch", path: "/")
+      log_warning(selection.message)
+      write_wayback_header("rejected:#{selection.reason}")
     end
 
     def resolver_summary

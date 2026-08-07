@@ -29,6 +29,11 @@
 #rails-wayback-bar .rw-btn-primary { background: #6ea8fe; color: #0b0d12; }
 #rails-wayback-bar .rw-btn-ghost { background: transparent; color: #8a93a6; border: 1px solid #2a2f3a; }
 #rails-wayback-bar .rw-btn:disabled { opacity: .5; cursor: not-allowed; }
+#rails-wayback-bar .rw-trust-notice {
+  border-top: 1px solid #2a2f3a; padding: 5px 12px;
+  color: #ffb86b; font-size: 10px;
+}
+#rails-wayback-bar .rw-ref-rejected { margin-left: 8px; color: #ff7b72; }
 #rails-wayback-bar .rw-diff {
   border-top: 1px solid #2a2f3a;
   padding: 6px 12px; font-size: 11px; color: #8a93a6;
@@ -55,5 +60,5 @@
   font-family: inherit; font-size: 11px;
 }
 #rails-wayback-bar .rw-diff-details li { padding: 2px 0; color: #c8cfdc; }
-body { padding-bottom: 56px !important; }
-body:has(#rails-wayback-bar .rw-diff) { padding-bottom: 88px !important; }
+body { padding-bottom: 80px !important; }
+body:has(#rails-wayback-bar .rw-diff) { padding-bottom: 112px !important; }

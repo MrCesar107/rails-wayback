@@ -4,6 +4,7 @@
      data-commit="<%= escape(@current_commit) %>"
      data-active-ref="<%= escape(@active_ref.to_s) %>"
      data-active-branch="<%= escape(@active_branch.to_s) %>"
+     data-ref-error="<%= escape(@ref_error) %>"
      data-preview-mode="<%= escape(@diff_info&.dig(:preview_mode).to_s) %>">
   <div class="rw-bar-inner">
     <div class="rw-field">
@@ -17,6 +18,12 @@
     <div class="rw-state" data-rw-state></div>
     <button type="button" data-rw-travel class="rw-btn rw-btn-primary">Travel</button>
     <button type="button" data-rw-reset class="rw-btn rw-btn-ghost" hidden>Return to HEAD</button>
+  </div>
+  <div class="rw-trust-notice" data-rw-trust-notice>
+    Historical templates execute Ruby in this process. Only travel to commits you trust.
+    <% unless @ref_error.empty? %>
+      <strong class="rw-ref-rejected"><%= escape(@ref_error) %></strong>
+    <% end %>
   </div>
   <%= diff_summary_html %>
 </div>

@@ -11,6 +11,8 @@ RailsWayback.configure do |config|
   # Rails Wayback is unavailable outside these environments, even if its
   # toggle file exists. Add another environment only as an explicit opt-in.
   # config.allowed_environments = %w[development test]
+  # Commits must be reachable from one of these Git ref patterns.
+  # config.trusted_ref_patterns = ["refs/heads/*"]
 
   # Directories (relative to Rails.root) whose contents are pulled from
   # the target git ref and used to render the historical preview.

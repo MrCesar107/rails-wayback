@@ -57,6 +57,8 @@ module RailsWayback
 
     def resolve_ref(ref)
       run("rev-parse", "--verify", "#{ref}^{commit}").strip
+    rescue ExecutableNotFoundError
+      raise
     rescue GitError
       raise RefNotFoundError, "Unknown git ref: #{ref.inspect}"
     end
@@ -82,6 +84,11 @@ module RailsWayback
       output.split("\n").map(&:strip).reject(&:empty?)
     rescue GitError
       []
+    end
+
+    def refs_containing(sha)
+      output = run("for-each-ref", "--contains=#{sha}", "--format=%(refname)")
+      output.split("\n").map(&:strip).reject(&:empty?)
     end
 
     # Same as `branches_containing`, but picks the most contextual one

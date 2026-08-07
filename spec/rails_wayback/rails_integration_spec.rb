@@ -130,6 +130,21 @@ RSpec.describe "RailsWayback Rails integration" do
     )
   end
 
+  it "rejects untrusted refs before historical templates are materialized or executed" do
+    expect(scenario("untrusted_ref_policy")).to include(
+      "untrusted_status" => 200,
+      "current_view_preserved" => true,
+      "malicious_view_absent" => true,
+      "malicious_code_not_executed" => true,
+      "cache_not_materialized" => true,
+      "untrusted_header" => true,
+      "toolbar_warning" => true,
+      "clears_ref_cookie" => true,
+      "clears_branch_cookie" => true,
+      "invalid_expression_header" => true
+    )
+  end
+
   it "renders the current view without a travel ref" do
     expect(scenario("live_rendering")).to include(
       "status" => 200,

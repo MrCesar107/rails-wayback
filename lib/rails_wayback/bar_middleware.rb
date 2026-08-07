@@ -2,6 +2,7 @@
 
 require "cgi"
 require "rails_wayback/bar_renderer"
+require "rails_wayback/ref_policy"
 
 module RailsWayback
   # Rack middleware that appends the wayback bar to every successful
@@ -193,8 +194,9 @@ module RailsWayback
 
     def build_snippet(env, tracker)
       git = RailsWayback::Git.new
-      active_ref = extract_active_ref(env)
-      active_branch = active_ref ? active_branch_for(env, git, active_ref) : nil
+      selection = ref_selection(env)
+      active_ref = selection&.accepted? ? selection.sha : nil
+      active_branch = active_ref ? active_branch_for(env, git, selection) : nil
 
       renderer = BarRenderer.new(
         current_branch: safe(:current_branch, git),
@@ -203,7 +205,8 @@ module RailsWayback
         active_branch: active_branch,
         engine_mount: engine_mount,
         diff_info: active_ref ? build_diff_info(git, active_ref, tracker) : nil,
-        csp_nonce: content_security_policy_nonce(env)
+        csp_nonce: content_security_policy_nonce(env),
+        ref_error: selection&.rejected? ? selection.message : nil
       )
       renderer.render
     rescue StandardError => e
@@ -231,11 +234,16 @@ module RailsWayback
     # via the `_wayback_branch` query param, so it survives the reload).
     # Falls back to inferring it from git — useful when a developer opens
     # a shared URL that only carries `_wayback_ref`.
-    def active_branch_for(env, git, ref)
+    def active_branch_for(env, git, selection)
       explicit = extract_active_branch(env)
-      return explicit if explicit && !explicit.empty?
+      explicit_ref = "refs/heads/#{explicit}"
+      return explicit if explicit && selection.trusted_refs.include?(explicit_ref)
 
-      git.resolve_branch_for(ref)
+      inferred = git.resolve_branch_for(selection.sha)
+      inferred_ref = "refs/heads/#{inferred}"
+      return inferred if inferred && selection.trusted_refs.include?(inferred_ref)
+
+      selection.trusted_refs.first&.sub(%r{\Arefs/(?:heads|tags|remotes)/}, "")
     rescue StandardError
       nil
     end
@@ -285,6 +293,17 @@ module RailsWayback
     def extract_active_ref(env)
       extract_query_param(env, "_wayback_ref") ||
         extract_cookie(env, "rails_wayback_ref")
+    end
+
+    def ref_selection(env)
+      return env[RailsWayback::RefPolicy::ENV_KEY] if env.key?(RailsWayback::RefPolicy::ENV_KEY)
+
+      ref = extract_active_ref(env)
+      return unless ref
+
+      RailsWayback::RefPolicy.new.authorize(ref).tap do |selection|
+        env[RailsWayback::RefPolicy::ENV_KEY] = selection
+      end
     end
 
     def extract_active_branch(env)

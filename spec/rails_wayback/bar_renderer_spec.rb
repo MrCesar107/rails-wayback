@@ -22,8 +22,31 @@ RSpec.describe RailsWayback::BarRenderer do
     expect(html).to include("data-rw-reset")
     expect(html).to include(%(href="/rails-wayback/assets/bar.css?v=#{RailsWayback::VERSION}"))
     expect(html).to include(%(src="/rails-wayback/assets/bar.js?v=#{RailsWayback::VERSION}"))
+    expect(html).to include("Historical templates execute Ruby in this process")
     expect(html).not_to include("<style")
     expect(html).not_to include("(function ()")
+  end
+
+  it "renders rejected refs as escaped toolbar warnings" do
+    html = described_class.new(
+      current_branch: "main",
+      current_commit: "abc1234",
+      ref_error: %(<script>alert("no")</script>)
+    ).render
+
+    expect(html).to include("rw-ref-rejected")
+    expect(html).to include("data-ref-error=")
+    expect(html).to include("&lt;script&gt;alert(&quot;no&quot;)&lt;/script&gt;")
+    expect(html).not_to include(%(<script>alert("no")</script>))
+  end
+
+  it "requires first-travel confirmation in the browser session" do
+    expect(described_class::SCRIPT).to include(
+      "window.confirm(",
+      "window.sessionStorage.getItem(key)",
+      'stateEl.textContent = "Travel rejected"',
+      "Continue only if you trust this commit"
+    )
   end
 
   it "normalizes custom mounts and escapes a CSP nonce on both asset tags" do

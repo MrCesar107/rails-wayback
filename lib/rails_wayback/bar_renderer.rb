@@ -13,7 +13,7 @@ module RailsWayback
     SCRIPT = File.read(File.expand_path("bar_renderer.js", __dir__)).freeze
 
     def initialize(current_branch:, current_commit:, active_ref: nil, active_branch: nil,
-                   engine_mount: "/rails-wayback", diff_info: nil, csp_nonce: nil)
+                   engine_mount: "/rails-wayback", diff_info: nil, csp_nonce: nil, ref_error: nil)
       @current_branch = current_branch
       @current_commit = current_commit
       @active_ref = active_ref
@@ -21,6 +21,7 @@ module RailsWayback
       @engine_mount = normalize_mount(engine_mount)
       @diff_info = diff_info
       @csp_nonce = csp_nonce.to_s
+      @ref_error = ref_error.to_s
     end
 
     def render

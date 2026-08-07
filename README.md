@@ -113,6 +113,7 @@ view tree.
 ```ruby
 RailsWayback.configure do |config|
   # config.allowed_environments = %w[development test]
+  # config.trusted_ref_patterns = ["refs/heads/*"]
   # config.view_paths  = %w[app/views]
   # config.asset_paths = %w[app/assets public]
   # config.max_commits = 50
@@ -123,7 +124,18 @@ end
 Rails Wayback refuses to activate outside `development` and `test` by
 default, even if its toggle file exists. Adding another environment is an
 explicit opt-in; historical templates execute inside the host Rails process,
-so only trusted refs should be used. The response-size limit applies only to
+so only trusted refs should be used. Travel accepts only full commit SHAs and,
+by default, the commit must be reachable from a local branch. Narrow
+`trusted_ref_patterns` to branches such as `refs/heads/main` or
+`refs/heads/release/*` when reviewing locally stored refs from other sources.
+Remote refs, tags, and detached commits remain blocked unless their full ref
+names match an explicitly configured pattern.
+
+This policy reduces accidental execution but is not a sandbox. Historical ERB
+and other executable template handlers run with the Rails server's filesystem,
+database, credentials, environment, and network permissions. The toolbar shows
+a permanent warning and asks for confirmation on the first travel action in
+each browser session. The response-size limit applies only to
 toolbar injection; streaming, encoded, file, partial, and larger responses are
 returned untouched. Toolbar CSS and JavaScript are served from the mounted
 engine, so CSP policies should allow same-origin styles, scripts, and fetches.

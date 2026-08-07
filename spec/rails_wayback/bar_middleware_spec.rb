@@ -149,15 +149,16 @@ RSpec.describe RailsWayback::BarMiddleware do
         SpecSupport.build_git_repo(root)
         SpecSupport.commit_file(root, "README.md", "hi", message: "init")
         RailsWayback.enable!
+        sha = RailsWayback::Git.new.current_commit
 
         _status, _headers, body = call(path: "/letters", query: "")
         expect(body.join).not_to include(%(<div class="rw-diff))
 
         _status, _headers, body_with_ref = call(
           path: "/letters",
-          query: "_wayback_ref=HEAD"
+          query: "_wayback_ref=#{sha}"
         )
-        # HEAD is a valid ref against itself, so the diff list is empty
+        # The current commit is valid against itself, so the diff list is empty
         # but the neutral panel is still rendered.
         expect(body_with_ref.join).to include("rw-diff-neutral")
       end
@@ -168,10 +169,12 @@ RSpec.describe RailsWayback::BarMiddleware do
         SpecSupport.build_git_repo(root)
         SpecSupport.commit_file(root, "README.md", "hi", message: "init")
         RailsWayback.enable!
+        sha = RailsWayback::Git.new.current_commit
+        SpecSupport.run("git", "-C", root.to_s, "branch", "some-feature", sha)
 
         _status, _headers, body = call(
           path: "/letters",
-          query: "_wayback_ref=HEAD&_wayback_branch=some-feature"
+          query: "_wayback_ref=#{sha}&_wayback_branch=some-feature"
         )
         merged = body.join
         expect(merged).to include('data-active-branch="some-feature"')
@@ -185,15 +188,17 @@ RSpec.describe RailsWayback::BarMiddleware do
         SpecSupport.build_git_repo(root)
         SpecSupport.commit_file(root, "README.md", "hi", message: "init")
         RailsWayback.enable!
+        sha = RailsWayback::Git.new.current_commit
+        SpecSupport.run("git", "-C", root.to_s, "branch", "feature-x", sha)
 
         _status, _headers, body = middleware.call(
           "PATH_INFO" => "/letters/42",
           "QUERY_STRING" => "",
           "REQUEST_METHOD" => "GET",
-          "HTTP_COOKIE" => "rails_wayback_ref=HEAD; rails_wayback_branch=feature-x"
+          "HTTP_COOKIE" => "rails_wayback_ref=#{sha}; rails_wayback_branch=feature-x"
         )
         merged = body.join
-        expect(merged).to include('data-active-ref="HEAD"')
+        expect(merged).to include(%(data-active-ref="#{sha}"))
         expect(merged).to include('data-active-branch="feature-x"')
         expect(merged).to include(">Rendering branch<")
       end
@@ -204,15 +209,17 @@ RSpec.describe RailsWayback::BarMiddleware do
         SpecSupport.build_git_repo(root)
         SpecSupport.commit_file(root, "README.md", "hi", message: "init")
         RailsWayback.enable!
+        sha = RailsWayback::Git.new.current_commit
+        SpecSupport.run("git", "-C", root.to_s, "branch", "from-url", sha)
 
         _status, _headers, body = middleware.call(
           "PATH_INFO" => "/letters",
-          "QUERY_STRING" => "_wayback_ref=HEAD&_wayback_branch=from-url",
+          "QUERY_STRING" => "_wayback_ref=#{sha}&_wayback_branch=from-url",
           "REQUEST_METHOD" => "GET",
           "HTTP_COOKIE" => "rails_wayback_ref=OLD; rails_wayback_branch=from-cookie"
         )
         merged = body.join
-        expect(merged).to include('data-active-ref="HEAD"')
+        expect(merged).to include(%(data-active-ref="#{sha}"))
         expect(merged).to include('data-active-branch="from-url"')
       end
     end

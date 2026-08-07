@@ -107,4 +107,18 @@ RSpec.describe RailsWayback::Git do
       end
     end
   end
+
+  it "lists the full refs that contain a commit" do
+    SpecSupport.with_tmp_root do |root|
+      SpecSupport.build_git_repo(root)
+      SpecSupport.commit_file(root, "README.md", "hi", message: "init")
+      sha = described_class.new(root: root).current_commit
+      SpecSupport.run("git", "-C", root.to_s, "branch", "feature/nested", sha)
+      SpecSupport.run("git", "-C", root.to_s, "tag", "preview", sha)
+
+      refs = described_class.new(root: root).refs_containing(sha)
+
+      expect(refs).to include("refs/heads/main", "refs/heads/feature/nested", "refs/tags/preview")
+    end
+  end
 end

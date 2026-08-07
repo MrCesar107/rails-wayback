@@ -93,6 +93,19 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
   current_sha = RailsIntegrationSupport.commit(root, "current view")
   RailsIntegrationSupport.run!("git", "branch", "feature/nested", good_historical_sha, chdir: root)
 
+  malicious_marker = root.join("tmp/malicious-template-executed")
+  RailsIntegrationSupport.run!("git", "checkout", "--quiet", "-b", "remote-only", chdir: root)
+  RailsIntegrationSupport.write(
+    index_path,
+    %(<% File.write(#{malicious_marker.to_s.inspect}, "executed") %><h1>Malicious view</h1>)
+  )
+  untrusted_sha = RailsIntegrationSupport.commit(root, "untrusted historical template")
+  RailsIntegrationSupport.run!("git", "checkout", "--quiet", "main", chdir: root)
+  RailsIntegrationSupport.run!("git", "branch", "-D", "remote-only", chdir: root)
+  RailsIntegrationSupport.run!(
+    "git", "update-ref", "refs/remotes/origin/untrusted", untrusted_sha, chdir: root
+  )
+
   RailsWayback.configure do |config|
     config.app_root = root
     config.cache_root = root.join("tmp/rails_wayback")
@@ -336,7 +349,35 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
       unknown_header: RailsIntegrationSupport.response_header(
         unknown_response,
         RailsWayback::ControllerExtensions::RESPONSE_HEADER
-      ) == "error:RailsWayback::RefNotFoundError"
+      ) == "rejected:invalid_format"
+    }
+  end
+
+  RailsIntegrationSupport.capture_scenario(results, :untrusted_ref_policy) do
+    untrusted_response = request.get(
+      "/integration?_wayback_ref=#{untrusted_sha}&_wayback_branch=origin/untrusted",
+      "HTTP_COOKIE" => "rails_wayback_ref=#{untrusted_sha}; rails_wayback_branch=origin/untrusted"
+    )
+    invalid_response = request.get("/integration?_wayback_ref=HEAD~1")
+    cookies = untrusted_response["Set-Cookie"].to_s
+
+    {
+      untrusted_status: untrusted_response.status,
+      current_view_preserved: untrusted_response.body.include?("Current view"),
+      malicious_view_absent: !untrusted_response.body.include?("Malicious view"),
+      malicious_code_not_executed: !malicious_marker.exist?,
+      cache_not_materialized: !RailsWayback.configuration.refs_cache_path.join(untrusted_sha).exist?,
+      untrusted_header: RailsIntegrationSupport.response_header(
+        untrusted_response,
+        RailsWayback::ControllerExtensions::RESPONSE_HEADER
+      ) == "rejected:untrusted_ref",
+      toolbar_warning: untrusted_response.body.include?("not reachable from a trusted Git ref"),
+      clears_ref_cookie: cookies.include?("rails_wayback_ref="),
+      clears_branch_cookie: cookies.include?("rails_wayback_branch="),
+      invalid_expression_header: RailsIntegrationSupport.response_header(
+        invalid_response,
+        RailsWayback::ControllerExtensions::RESPONSE_HEADER
+      ) == "rejected:invalid_format"
     }
   end
 
