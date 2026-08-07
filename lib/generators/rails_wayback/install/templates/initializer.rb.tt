@@ -19,4 +19,8 @@ RailsWayback.configure do |config|
 
   # How many recent commits per branch are shown in the bar dropdown.
   # config.max_commits = 50
+
+  # Maximum buffered HTML response size that may receive the toolbar.
+  # Streaming, encoded, file, and larger responses are always left untouched.
+  # config.max_response_bytes = 2 * 1024 * 1024
 end

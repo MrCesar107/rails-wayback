@@ -50,12 +50,12 @@ module RailsIntegrationSupport
 
   def capture_scenario(results, name)
     results[name] = yield
-  rescue StandardError => error
+  rescue StandardError => e
     results[name] = {
       error: {
-        class: error.class.name,
-        message: error.message,
-        backtrace: Array(error.backtrace).first(10)
+        class: e.class.name,
+        message: e.message,
+        backtrace: Array(e.backtrace).first(10)
       }
     }
   end
@@ -115,12 +115,25 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
     def index
       @current_name = "Current"
     end
+
+    def fragment
+      render html: "<span>Fragment response</span>".html_safe, layout: false
+    end
+
+    def lazy_html
+      response.content_type = "text/html"
+      self.response_body = Enumerator.new do |output|
+        output << "<html><body>Lazy response</body></html>"
+      end
+    end
   end
   Object.const_set(:IntegrationController, controller_class)
 
   RailsWaybackIntegrationApplication.initialize!
   RailsWaybackIntegrationApplication.routes.draw do
     get "/integration", to: "integration#index"
+    get "/integration/fragment", to: "integration#fragment"
+    get "/integration/lazy", to: "integration#lazy_html"
     mount RailsWayback::Engine => "/rails-wayback"
   end
 
@@ -145,6 +158,23 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
   end
 
   RailsWayback.enable!
+
+  RailsIntegrationSupport.capture_scenario(results, :response_safety) do
+    head_response = request.request("HEAD", "/integration")
+    fragment_response = request.get("/integration/fragment")
+    lazy_response = request.get("/integration/lazy")
+
+    {
+      head_status: head_response.status,
+      head_body_empty: head_response.body.empty?,
+      fragment_status: fragment_response.status,
+      fragment_preserved: fragment_response.body == "<span>Fragment response</span>",
+      fragment_bar_absent: !fragment_response.body.include?('id="rails-wayback-bar"'),
+      lazy_status: lazy_response.status,
+      lazy_body_preserved: lazy_response.body.include?("Lazy response"),
+      lazy_bar_absent: !lazy_response.body.include?('id="rails-wayback-bar"')
+    }
+  end
 
   RailsIntegrationSupport.capture_scenario(results, :branch_endpoints) do
     branches_response = request.get("/rails-wayback/branches")
@@ -178,8 +208,8 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
         "HTTP_COOKIE" => "rails_wayback_ref=#{broken_historical_sha}; rails_wayback_branch=main"
       )
       nil
-    rescue StandardError => error
-      error
+    rescue StandardError => e
+      e
     end
     recovery_response = request.get(
       "/integration?_wayback_ref=#{good_historical_sha}&_wayback_branch=main"

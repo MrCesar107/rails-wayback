@@ -57,7 +57,8 @@ module RailsWayback
       if RailsWayback.environment_allowed?
         @stdout.puts "rails-wayback: #{RailsWayback.toggle.status}"
       else
-        @stdout.puts "rails-wayback: unavailable (environment #{RailsWayback.current_environment.inspect} is not allowed)"
+        environment = RailsWayback.current_environment.inspect
+        @stdout.puts "rails-wayback: unavailable (environment #{environment} is not allowed)"
       end
       0
     end

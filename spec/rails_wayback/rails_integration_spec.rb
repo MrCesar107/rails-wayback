@@ -44,6 +44,19 @@ RSpec.describe "RailsWayback Rails integration" do
     )
   end
 
+  it "preserves HEAD, fragment, and lazy enumerable responses" do
+    expect(scenario("response_safety")).to include(
+      "head_status" => 200,
+      "head_body_empty" => true,
+      "fragment_status" => 200,
+      "fragment_preserved" => true,
+      "fragment_bar_absent" => true,
+      "lazy_status" => 200,
+      "lazy_body_preserved" => true,
+      "lazy_bar_absent" => true
+    )
+  end
+
   it "serves branch and commit endpoints, including nested and missing branches" do
     expect(scenario("branch_endpoints")).to include(
       "branches_status" => 200,

@@ -10,15 +10,17 @@ module RailsWayback
     DEFAULT_VIEW_PATHS = ["app/views", "app/components"].freeze
     DEFAULT_ASSET_PATHS = ["app/assets", "public"].freeze
     DEFAULT_MAX_COMMITS = 50
+    DEFAULT_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
     DEFAULT_ALLOWED_ENVIRONMENTS = %w[development test].freeze
 
     attr_accessor :view_paths, :asset_paths, :max_commits, :allowed_environments,
-                  :app_root, :cache_root, :toggle_file
+                  :max_response_bytes, :app_root, :cache_root, :toggle_file
 
     def initialize
       @view_paths = DEFAULT_VIEW_PATHS.dup
       @asset_paths = DEFAULT_ASSET_PATHS.dup
       @max_commits = DEFAULT_MAX_COMMITS
+      @max_response_bytes = DEFAULT_MAX_RESPONSE_BYTES
       @allowed_environments = DEFAULT_ALLOWED_ENVIRONMENTS.dup
       @app_root = nil
       @cache_root = nil

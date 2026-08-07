@@ -8,6 +8,8 @@ module RailsWayback
   # in the middleware; this controller only exposes git metadata.
   class PagesController < ApplicationController
     WAYBACK_COOKIES = %w[rails_wayback_ref rails_wayback_branch].freeze
+    Result = Struct.new(:value, :error)
+    private_constant :Result
 
     def branches
       current_branch = safe_call { git.current_branch }
@@ -52,8 +54,6 @@ module RailsWayback
     end
 
     private
-
-    Result = Struct.new(:value, :error)
 
     def safe_call
       Result.new(yield, nil)

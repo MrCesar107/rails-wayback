@@ -26,7 +26,7 @@ RSpec.describe RailsWayback::Generators::InstallGenerator do
       expect(initializer.read).to include("RailsWayback.configure")
       expect(routes.scan("mount RailsWayback::Engine").size).to eq(1)
       expect(routes).to include(
-        'if defined?(RailsWayback) && RailsWayback.enabled?'
+        "if defined?(RailsWayback) && RailsWayback.enabled?"
       )
       expect(gitignore.scan("/tmp/rails_wayback/").size).to eq(1)
       expect(gitignore).to include("/log/*.log")

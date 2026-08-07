@@ -1,0 +1,110 @@
+plugins:
+  - rubocop-rails
+  - rubocop-rake
+  - rubocop-rspec
+
+AllCops:
+  TargetRubyVersion: 3.3
+  TargetRailsVersion: 8.0
+  NewCops: enable
+  DisplayCopNames: true
+  SuggestExtensions: false
+  Exclude:
+    - "gemfiles/**/*"
+    - "pkg/**/*"
+    - "tmp/**/*"
+    - "vendor/**/*"
+
+Layout/LineLength:
+  Max: 120
+
+Metrics/AbcSize:
+  Max: 30
+
+Metrics/ClassLength:
+  Max: 300
+
+Metrics/CyclomaticComplexity:
+  Max: 10
+
+Metrics/MethodLength:
+  Max: 25
+
+Metrics/ParameterLists:
+  Max: 6
+
+Metrics/PerceivedComplexity:
+  Max: 10
+
+Naming/FileName:
+  Exclude:
+    - "lib/rails-wayback.rb"
+
+Naming/PredicateMethod:
+  Exclude:
+    - "lib/rails_wayback/toggle.rb"
+
+Rails/ApplicationController:
+  Exclude:
+    - "spec/support/rails_integration_runner.rb"
+
+Rails/NegateInclude:
+  Enabled: false
+
+RSpec/BeforeAfterAll:
+  Exclude:
+    - "spec/rails_wayback/rails_integration_spec.rb"
+
+RSpec/DescribeClass:
+  Exclude:
+    - "spec/rails_wayback/environment_spec.rb"
+    - "spec/rails_wayback/rails_integration_spec.rb"
+
+RSpec/ExampleLength:
+  Max: 55
+
+RSpec/MessageSpies:
+  Exclude:
+    - "spec/rails_wayback/view_source_spec.rb"
+
+RSpec/SpecFilePathFormat:
+  Exclude:
+    - "spec/rails_wayback/install_generator_spec.rb"
+    - "spec/rails_wayback/version_spec.rb"
+
+RSpec/ExpectInHook:
+  Exclude:
+    - "spec/rails_wayback/rails_integration_spec.rb"
+
+RSpec/InstanceVariable:
+  Exclude:
+    - "spec/rails_wayback/rails_integration_spec.rb"
+
+RSpec/MultipleExpectations:
+  Max: 15
+
+RSpec/Output:
+  Exclude:
+    - "spec/support/rails_integration_runner.rb"
+
+Rails/Delegate:
+  # Core entry points must also work without Active Support loaded.
+  Enabled: false
+
+Rails/Present:
+  # Middleware code must not rely on Active Support core extensions.
+  Enabled: false
+
+Style/Documentation:
+  Enabled: false
+
+Style/FileOpen:
+  # Lock files intentionally remain open for the full critical section.
+  Exclude:
+    - "lib/rails_wayback/view_source.rb"
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes

@@ -160,7 +160,7 @@ RSpec.describe RailsWayback::ViewSource do
           super
         end
 
-        def with_cache_lock(mode, &block)
+        def with_cache_lock(mode, &)
           @cleanup_started << true if mode == File::LOCK_EX
           super
         end

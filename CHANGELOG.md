@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added RuboCop with Rails, Rake, and RSpec plugins, including local Rake tasks
+  and a dedicated CI lint job.
 - Added `/rails-wayback/reset` as a server-side recovery path that clears
   travel cookies without rendering host application views.
 - Added provenance tracking for templates, partials, layouts, and collections,
@@ -32,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Made toolbar injection Rack-compliant and limited it to complete, bounded,
+  unencoded buffered HTML responses, preserving streaming, file, partial,
+  attachment, and otherwise non-transformable responses.
 - Made ref materialization transactional and concurrency-safe by validating the
   extraction pipeline, building in temporary directories, locking per ref, and
   coordinating cache cleanup with active builds.

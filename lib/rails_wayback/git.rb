@@ -124,19 +124,18 @@ module RailsWayback
       FileUtils.rm_f(target.join(".rails_wayback_index")) if target
     end
 
-    def root
-      @root
-    end
+    attr_reader :root
 
     private
 
-    def run(*args)
-      run_with_env({}, *args)
+    def run(*)
+      run_with_env({}, *)
     end
 
-    def run_with_env(env, *args)
-      stdout, stderr, status = Open3.capture3(env, "git", "-C", @root.to_s, *args)
+    def run_with_env(env, *)
+      stdout, stderr, status = Open3.capture3(env, "git", "-C", @root.to_s, *)
       raise GitError, stderr.strip unless status.success?
+
       stdout
     end
   end

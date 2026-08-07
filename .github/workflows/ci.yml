@@ -7,6 +7,23 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    name: RuboCop
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Run RuboCop
+        run: bundle exec rubocop --parallel
+
   test:
     name: RSpec (Ruby ${{ matrix.ruby }}, Rails ${{ matrix.rails.version }})
     runs-on: ubuntu-latest

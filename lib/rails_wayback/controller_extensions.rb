@@ -35,7 +35,7 @@ module RailsWayback
 
       if dirs.empty?
         log_warning("no view directories materialised for ref #{ref}")
-        set_header("empty:#{ref}")
+        write_wayback_header("empty:#{ref}")
         return
       end
 
@@ -45,13 +45,13 @@ module RailsWayback
       dirs.each { |dir| prepend_view_path(dir.to_s) }
 
       @__rails_wayback_active_ref = ref
-      set_header(ref)
+      write_wayback_header(ref)
 
       log_info("prepended #{dirs.size} view path(s) from ref #{ref}")
       log_info("resolver order: #{resolver_summary}")
     rescue RailsWayback::RefNotFoundError, RailsWayback::Git::GitError => e
       log_warning("#{e.class}: #{e.message}")
-      set_header("error:#{e.class}")
+      write_wayback_header("error:#{e.class}")
     end
 
     # Params take precedence for one-off overrides (e.g. a shared URL);
@@ -74,11 +74,12 @@ module RailsWayback
     def resolver_path(resolver)
       return resolver.to_path if resolver.respond_to?(:to_path)
       return resolver.path    if resolver.respond_to?(:path)
+
       resolver.class.name
     end
 
-    def set_header(value)
-      response.set_header(RESPONSE_HEADER, value) if response
+    def write_wayback_header(value)
+      response&.set_header(RESPONSE_HEADER, value)
     rescue StandardError
       nil
     end

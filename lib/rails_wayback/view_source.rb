@@ -118,7 +118,7 @@ module RailsWayback
 
       Tempfile.create(["rails-wayback-extraction", ".log"]) do |errors|
         statuses = Open3.pipeline(archive_cmd, tar_cmd, err: errors)
-        return if statuses.all?(&:success?)
+        next if statuses.all?(&:success?)
 
         errors.flush
         errors.rewind
@@ -142,13 +142,13 @@ module RailsWayback
       status.success? && out.strip == "tree"
     end
 
-    def with_cache_lock(mode, &block)
-      with_file_lock(configuration.cache_root_path.join(".refs.lock"), mode, &block)
+    def with_cache_lock(mode, &)
+      with_file_lock(configuration.cache_root_path.join(".refs.lock"), mode, &)
     end
 
-    def with_ref_lock(sha, &block)
+    def with_ref_lock(sha, &)
       path = configuration.cache_root_path.join("locks", "#{sha}.lock")
-      with_file_lock(path, File::LOCK_EX, &block)
+      with_file_lock(path, File::LOCK_EX, &)
     end
 
     def with_file_lock(path, mode)

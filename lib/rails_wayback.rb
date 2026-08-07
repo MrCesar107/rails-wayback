@@ -49,7 +49,7 @@ module RailsWayback
       if defined?(Rails) && Rails.respond_to?(:env) && Rails.env
         Rails.env.to_s
       else
-        ENV["RAILS_ENV"] || ENV["RACK_ENV"]
+        ENV["RAILS_ENV"] || ENV.fetch("RACK_ENV", nil)
       end
     end
 
@@ -66,7 +66,7 @@ module RailsWayback
 
     def enable!
       unless environment_allowed?
-        allowed = configuration.allowed_environments.map(&:to_s).join(", ")
+        allowed = configuration.allowed_environments.join(", ")
         raise DisabledError,
               "environment #{current_environment.inspect} is not allowed " \
               "(allowed: #{allowed})"
@@ -81,6 +81,7 @@ module RailsWayback
 
     def root
       return Rails.root if defined?(Rails) && Rails.respond_to?(:root) && Rails.root
+
       Pathname.new(Dir.pwd)
     end
   end

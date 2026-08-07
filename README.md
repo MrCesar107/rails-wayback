@@ -110,14 +110,17 @@ RailsWayback.configure do |config|
   # config.view_paths  = %w[app/views]
   # config.asset_paths = %w[app/assets public]
   # config.max_commits = 50
+  # config.max_response_bytes = 2 * 1024 * 1024
 end
 ```
 
 Rails Wayback refuses to activate outside `development` and `test` by
 default, even if its toggle file exists. Adding another environment is an
 explicit opt-in; historical templates execute inside the host Rails process,
-so only trusted refs should be used. Everything above has a sensible default.
-Delete the initializer if you don't need to change anything.
+so only trusted refs should be used. The response-size limit applies only to
+toolbar injection; streaming, encoded, file, partial, and larger responses are
+returned untouched. Everything above has a sensible default. Delete the
+initializer if you don't need to change anything.
 
 ## Compatibility
 

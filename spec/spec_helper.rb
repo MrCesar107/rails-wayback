@@ -59,6 +59,7 @@ module SpecSupport
   def run(*cmd)
     out, err, status = Open3.capture3(*cmd)
     raise "cmd failed: #{cmd.inspect}\n#{err}" unless status.success?
+
     out
   end
 end
