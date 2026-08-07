@@ -50,7 +50,8 @@ jobs:
           bundler-cache: true
 
       - name: Show resolved versions
-        run: bundle exec ruby -rbundler -rrails -e 'puts "Ruby #{RUBY_VERSION}, Rails #{Rails.version}, Bundler #{Bundler::VERSION}"'
+        run: |
+          bundle exec ruby -rbundler -rrails -e 'puts "Ruby #{RUBY_VERSION}, Rails #{Rails.version}, Bundler #{Bundler::VERSION}"'
 
       - name: Run RSpec
         run: bundle exec rspec
