@@ -67,6 +67,25 @@ RSpec.describe RailsWayback::ViewSource do
     end
   end
 
+  it "reports a missing tar executable with an actionable error" do
+    SpecSupport.with_tmp_root do |root|
+      sha = "a" * 40
+      RailsWayback.configuration.view_paths = ["app/views"]
+      RailsWayback.configuration.asset_paths = []
+      git = instance_double(
+        RailsWayback::Git,
+        resolve_ref: sha,
+        root: root,
+        tree?: true
+      )
+      source = described_class.new(configuration: RailsWayback.configuration, git: git)
+      allow(Open3).to receive(:pipeline).and_raise(Errno::ENOENT, "tar")
+
+      expect { source.materialize(sha) }
+        .to raise_error(RailsWayback::MaterializationError, /`tar`.*rails-wayback doctor/)
+    end
+  end
+
   it "serializes concurrent materializations of the same ref and rechecks freshness" do
     SpecSupport.with_tmp_root do |root|
       SpecSupport.build_git_repo(root)

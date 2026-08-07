@@ -22,4 +22,10 @@ namespace :wayback do
   task clean: :environment do
     RailsWayback::CLI.start(["clean"])
   end
+
+  desc "Check rails-wayback dependencies and host application readiness"
+  task doctor: :environment do
+    status = RailsWayback::CLI.start(["doctor"])
+    raise "rails-wayback doctor found critical problems" unless status.zero?
+  end
 end

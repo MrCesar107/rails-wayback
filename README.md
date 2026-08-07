@@ -51,10 +51,16 @@ bundle exec rails-wayback on      # enable and inject the bar in every page
 bundle exec rails-wayback off     # disable it
 bundle exec rails-wayback status  # print current state
 bundle exec rails-wayback clean   # drop the tmp/rails_wayback ref cache
+bundle exec rails-wayback doctor  # check dependencies and app readiness
 ```
 
 Same commands as rake tasks: `rake wayback:on`, `wayback:off`,
-`wayback:status`, `wayback:clean`.
+`wayback:status`, `wayback:clean`, `wayback:doctor`.
+
+Run `bin/rails wayback:doctor` from a Rails application to check Git and `tar`,
+the repository root, cache write access, configured view and asset paths, and
+the active Rails environment. Warnings do not fail the command; missing
+dependencies or invalid runtime requirements return a non-zero exit status.
 
 Activation lasts for the current Rails server session. Every new server start
 begins with `rails-wayback` disabled, while `on` and `off` can still be used at

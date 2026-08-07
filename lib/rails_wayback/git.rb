@@ -16,13 +16,14 @@ module RailsWayback
     Commit = Struct.new(:sha, :short_sha, :subject, :author, :date, keyword_init: true)
 
     class GitError < StandardError; end
+    class ExecutableNotFoundError < GitError; end
 
     def initialize(root: nil)
       @root = Pathname.new(root || RailsWayback.configuration.app_root_path)
     end
 
     def repository?
-      Dir.exist?(@root.join(".git")) || run("rev-parse", "--is-inside-work-tree").strip == "true"
+      run("rev-parse", "--is-inside-work-tree").strip == "true"
     rescue GitError
       false
     end
@@ -62,6 +63,14 @@ module RailsWayback
 
     def show(ref, path)
       run("show", "#{ref}:#{path}")
+    end
+
+    def tree?(ref, path)
+      run("cat-file", "-t", "#{ref}:#{path}").strip == "tree"
+    rescue ExecutableNotFoundError
+      raise
+    rescue GitError
+      false
     end
 
     # Returns the local branch names that contain `sha` in their history.
@@ -137,6 +146,14 @@ module RailsWayback
       raise GitError, stderr.strip unless status.success?
 
       stdout
+    rescue Errno::ENOENT
+      raise ExecutableNotFoundError,
+            "Required executable `git` was not found in PATH. " \
+            "Run `bundle exec rails-wayback doctor` for diagnostics."
+    rescue SystemCallError => e
+      raise GitError,
+            "Could not execute required executable `git`: #{e.message}. " \
+            "Run `bundle exec rails-wayback doctor` for diagnostics."
     end
   end
 end

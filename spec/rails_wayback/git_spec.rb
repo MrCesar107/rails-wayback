@@ -33,6 +33,14 @@ RSpec.describe RailsWayback::Git do
     end
   end
 
+  it "reports a missing Git executable with an actionable error" do
+    git = described_class.new(root: "/tmp")
+    allow(Open3).to receive(:capture3).and_raise(Errno::ENOENT, "git")
+
+    expect { git.current_branch }
+      .to raise_error(described_class::ExecutableNotFoundError, /`git`.*rails-wayback doctor/)
+  end
+
   describe "#diff_paths" do
     it "returns only files under the requested pathspecs that differ between ref and working tree" do
       SpecSupport.with_tmp_root do |root|

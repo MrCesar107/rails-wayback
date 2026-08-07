@@ -117,7 +117,7 @@ module RailsWayback
       tar_cmd     = ["tar", "-xf", "-", "-C", dest.to_s]
 
       Tempfile.create(["rails-wayback-extraction", ".log"]) do |errors|
-        statuses = Open3.pipeline(archive_cmd, tar_cmd, err: errors)
+        statuses = extraction_pipeline(archive_cmd, tar_cmd, errors)
         next if statuses.all?(&:success?)
 
         errors.flush
@@ -133,13 +133,22 @@ module RailsWayback
     end
 
     def tree_exists?(sha, path)
-      # `git cat-file -t <sha>:<path>` prints "tree" for directories and
-      # "blob" for files. Anything else (or a non-zero exit) means the
-      # path is not present at that ref, in which case we skip it.
-      out, _err, status = Open3.capture3(
-        "git", "-C", git.root.to_s, "cat-file", "-t", "#{sha}:#{path}"
-      )
-      status.success? && out.strip == "tree"
+      git.tree?(sha, path)
+    end
+
+    def extraction_pipeline(archive_cmd, tar_cmd, errors)
+      Open3.pipeline(archive_cmd, tar_cmd, err: errors)
+    rescue Errno::ENOENT => e
+      executable = [archive_cmd.first, tar_cmd.first].find do |candidate|
+        e.message.end_with?(" - #{candidate}")
+      end || "git or tar"
+      raise MaterializationError,
+            "Required executable `#{executable}` was not found in PATH. " \
+            "Run `bundle exec rails-wayback doctor` for diagnostics."
+    rescue SystemCallError => e
+      raise MaterializationError,
+            "Could not execute the git/tar extraction pipeline: #{e.message}. " \
+            "Run `bundle exec rails-wayback doctor` for diagnostics."
     end
 
     def with_cache_lock(mode, &)

@@ -8,6 +8,7 @@ require "rails_wayback/render_tracker"
 require "rails_wayback/toggle"
 require "rails_wayback/git"
 require "rails_wayback/view_source"
+require "rails_wayback/doctor"
 
 module RailsWayback
   class Error < StandardError; end

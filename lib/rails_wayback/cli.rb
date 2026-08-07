@@ -10,7 +10,8 @@ module RailsWayback
   #   rails-wayback status  # print current state
   #   rails-wayback clean   # remove the ref cache under tmp/
   class CLI
-    COMMANDS = %w[on off status clean help].freeze
+    COMMANDS = %w[on off status clean doctor help].freeze
+    DOCTOR_LABELS = { ok: "OK", warning: "WARN", error: "ERROR" }.freeze
 
     def self.start(argv, stdout: $stdout, stderr: $stderr)
       new(stdout: stdout, stderr: stderr).run(argv)
@@ -28,6 +29,7 @@ module RailsWayback
       when "off"    then cmd_off
       when "status" then cmd_status
       when "clean"  then cmd_clean
+      when "doctor" then cmd_doctor
       when "help", "--help", "-h" then cmd_help
       else
         @stderr.puts "Unknown command: #{command}"
@@ -69,6 +71,16 @@ module RailsWayback
       0
     end
 
+    def cmd_doctor
+      result = RailsWayback::Doctor.new.call
+      @stdout.puts "rails-wayback doctor"
+      result.checks.each do |check|
+        @stdout.puts "[#{DOCTOR_LABELS.fetch(check.status)}] #{check.name}: #{check.message}"
+      end
+      @stdout.puts(result.ready? ? "Result: ready" : "Result: not ready")
+      result.exit_status
+    end
+
     def cmd_help
       @stdout.puts <<~HELP
         Usage: rails-wayback <command>
@@ -78,6 +90,7 @@ module RailsWayback
           off      Disable the wayback UI
           status   Print whether the UI is currently enabled
           clean    Remove the tmp/rails_wayback ref cache
+          doctor   Check dependencies and host application readiness
           help     Show this help
       HELP
       0

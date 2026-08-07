@@ -56,4 +56,17 @@ RSpec.describe RailsWayback::CLI do
       expect(root.join("tmp/rails_wayback/refs/abc")).not_to exist
     end
   end
+
+  it "prints doctor checks and returns their exit status" do
+    SpecSupport.with_tmp_root do |root|
+      SpecSupport.build_git_repo(root)
+      SpecSupport.commit_file(root, "app/views/home/index.html.erb", "<h1>Home</h1>", message: "home")
+      out = StringIO.new
+
+      status = described_class.start(["doctor"], stdout: out, stderr: StringIO.new)
+
+      expect(status).to eq(0)
+      expect(out.string).to include("rails-wayback doctor", "[OK] Git:", "Result: ready")
+    end
+  end
 end

@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `rails-wayback doctor` and `wayback:doctor` diagnostics for external
+  tools, repository state, cache permissions, configured paths, and environment.
 - Added RuboCop with Rails, Rake, and RSpec plugins, including local Rake tasks
   and a dedicated CI lint job.
 - Added `/rails-wayback/reset` as a server-side recovery path that clears
