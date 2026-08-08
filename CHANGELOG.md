@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Replaced Rails' generic 500 page with a self-contained recovery response when
+  a materialised historical template is incompatible with the current runtime,
+  without intercepting unrelated application errors.
+
 ## [0.2.0] - 2026-08-08
 
 ### Security

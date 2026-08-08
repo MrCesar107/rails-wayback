@@ -16,6 +16,8 @@ require "rails_wayback/historical_asset_resolver"
 require "rails_wayback/historical_asset_body"
 require "rails_wayback/historical_asset_helper"
 require "rails_wayback/doctor"
+require "rails_wayback/travel_error_page"
+require "rails_wayback/travel_error_handler"
 
 module RailsWayback
   class Error < StandardError; end

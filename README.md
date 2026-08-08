@@ -105,10 +105,13 @@ fetch git data).
    visual layer (layouts, partials, ERB) comes from the past; the data and
    business logic come from the present.
 
-If a historical template references a helper or assign that no longer
-exists, you'll get the same `ActionView` error you'd get from any missing
-piece — the app itself never changes. Open `/rails-wayback/reset` to clear the
-travel cookies if that error prevents the toolbar from rendering.
+If a historical template references a helper, assign, model attribute, or
+database state that no longer exists, Rails Wayback returns a self-contained
+500 recovery page with the original error and a **Return to current version**
+action. This boundary applies only when the failing template came from the
+materialised historical ref; unrelated controller and application errors keep
+their normal Rails behavior. `/rails-wayback/reset` remains available directly
+to clear the travel cookies without rendering a host application view.
 
 The toolbar tracks templates, partials, layouts, and collections. While
 traveling it labels a response as historical, current fallback, or mixed so

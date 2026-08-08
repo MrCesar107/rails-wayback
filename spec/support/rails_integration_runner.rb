@@ -71,6 +71,7 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
   index_path = root.join("app/views/integration/index.html.erb")
   partial_path = root.join("app/views/integration/_historical.html.erb")
   item_path = root.join("app/views/integration/_item.html.erb")
+  current_failure_path = root.join("app/views/integration/current_template_failure.html.erb")
   layout_path = root.join("app/views/layouts/application.html.erb")
   stylesheet_path = root.join("public/theme.css")
   logo_path = root.join("public/images/logo.svg")
@@ -101,6 +102,10 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
   broken_historical_sha = RailsIntegrationSupport.commit(root, "historical incompatible view")
 
   RailsIntegrationSupport.write(index_path, %(<h1>Current view</h1>))
+  RailsIntegrationSupport.write(
+    current_failure_path,
+    %(<%= current_template_failure_from_host_application %>)
+  )
   RailsIntegrationSupport.write(layout_path, %(<!doctype html><html><body><%= yield %></body></html>))
   RailsIntegrationSupport.write(stylesheet_path, %(body { color: current; }))
   RailsIntegrationSupport.write(logo_path, %(<svg><title>Current logo</title></svg>))
@@ -171,6 +176,12 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
         output << "<html><body>Lazy response</body></html>"
       end
     end
+
+    def application_failure
+      raise "unrelated current application failure"
+    end
+
+    def current_template_failure; end
   end
   Object.const_set(:IntegrationController, controller_class)
 
@@ -179,6 +190,8 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
     get "/integration", to: "integration#index"
     get "/integration/fragment", to: "integration#fragment"
     get "/integration/lazy", to: "integration#lazy_html"
+    get "/integration/failure", to: "integration#application_failure"
+    get "/integration/current-template-failure", to: "integration#current_template_failure"
     mount RailsWayback::Engine => "/rails-wayback"
   end
 
@@ -341,10 +354,21 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
   end
 
   RailsIntegrationSupport.capture_scenario(results, :error_recovery) do
-    broken_error = begin
+    broken_response = request.get(
+      "/integration",
+      "HTTP_COOKIE" => "rails_wayback_ref=#{broken_historical_sha}; rails_wayback_branch=main"
+    )
+    application_error = begin
       request.get(
-        "/integration",
-        "HTTP_COOKIE" => "rails_wayback_ref=#{broken_historical_sha}; rails_wayback_branch=main"
+        "/integration/failure?_wayback_ref=#{good_historical_sha}&_wayback_branch=main"
+      )
+      nil
+    rescue StandardError => e
+      e
+    end
+    current_template_error = begin
+      request.get(
+        "/integration/current-template-failure?_wayback_ref=#{good_historical_sha}"
       )
       nil
     rescue StandardError => e
@@ -355,9 +379,22 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
     )
 
     {
-      incompatible_view_error: broken_error &&
-        RailsIntegrationSupport.exception_messages(broken_error)
-                               .include?("helper_removed_from_current_application"),
+      status: broken_response.status,
+      recovery_page: broken_response.body.include?("Historical preview failed"),
+      error_details: broken_response.body.include?("helper_removed_from_current_application"),
+      reset_link: broken_response.body.include?(
+        "href=\"/rails-wayback/reset?return_to=%2Fintegration\""
+      ),
+      error_header: RailsIntegrationSupport.response_header(
+        broken_response,
+        RailsWayback::TravelErrorHandler::ERROR_HEADER
+      ) == "historical_template_error",
+      unrelated_application_error_propagates: application_error &&
+        RailsIntegrationSupport.exception_messages(application_error)
+                               .include?("unrelated current application failure"),
+      current_template_error_propagates: current_template_error &&
+        RailsIntegrationSupport.exception_messages(current_template_error)
+                               .include?("current_template_failure_from_host_application"),
       subsequent_request_succeeds: recovery_response.status == 200 &&
         recovery_response.body.include?("Historical view")
     }
@@ -488,21 +525,15 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
     )
     old_access = Time.at(1).utc
     File.utime(old_access, old_access, old_marker)
-    incompatible_error = begin
-      request.get(
-        "/integration?_wayback_ref=#{broken_historical_sha}&_wayback_branch=main"
-      )
-      nil
-    rescue StandardError => e
-      e
-    end
+    incompatible_response = request.get(
+      "/integration?_wayback_ref=#{broken_historical_sha}&_wayback_branch=main"
+    )
     cached_refs = source.cache_snapshot.refs.map(&:sha)
 
     {
       historical_rendered: historical_response.body.include?("Historical view"),
-      incompatible_view_error: incompatible_error &&
-        RailsIntegrationSupport.exception_messages(incompatible_error)
-                               .include?("helper_removed_from_current_application"),
+      incompatible_view_recovered: incompatible_response.status == 500 &&
+        incompatible_response.body.include?("Historical preview failed"),
       newest_ref_preserved: cached_refs == [broken_historical_sha],
       oldest_ref_pruned: !RailsWayback.configuration.refs_cache_path.join(good_historical_sha).exist?
     }

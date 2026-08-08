@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "rails_wayback/travel_error_handler"
+
 module RailsWayback
   # Included in every `ActionController::Base` subclass. When a
   # request carries `?_wayback_ref=<sha>` and the gem is enabled, it
@@ -56,7 +58,7 @@ module RailsWayback
         with_wayback_materialization(root) do
           prepend_wayback_views(selection, dirs)
           action_started = true
-          action.call
+          TravelErrorHandler.call(controller: self, root: root, selection: selection, &action)
         end
       end
     rescue RailsWayback::RefNotFoundError, RailsWayback::Git::GitError => e

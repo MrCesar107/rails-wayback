@@ -121,9 +121,15 @@ RSpec.describe "RailsWayback Rails integration" do
     )
   end
 
-  it "recovers request state after an incompatible historical view" do
+  it "recovers historical template failures without hiding unrelated application errors" do
     expect(scenario("error_recovery")).to include(
-      "incompatible_view_error" => true,
+      "status" => 500,
+      "recovery_page" => true,
+      "error_details" => true,
+      "reset_link" => true,
+      "error_header" => true,
+      "unrelated_application_error_propagates" => true,
+      "current_template_error_propagates" => true,
       "subsequent_request_succeeds" => true
     )
   end
@@ -183,7 +189,7 @@ RSpec.describe "RailsWayback Rails integration" do
   it "automatically prunes after the render lease is released, including failed renders" do
     expect(scenario("automatic_cache_pruning")).to include(
       "historical_rendered" => true,
-      "incompatible_view_error" => true,
+      "incompatible_view_recovered" => true,
       "newest_ref_preserved" => true,
       "oldest_ref_pruned" => true
     )
