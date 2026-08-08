@@ -12,6 +12,8 @@ RailsWayback.configure do |config|
   # toggle file exists. Add another environment only as an explicit opt-in.
   # config.allowed_environments = %w[development test]
   # Commits must be reachable from one of these Git ref patterns.
+  # Add refs/remotes/... or refs/tags/... patterns to show locally stored
+  # remote-tracking branches or tags. Rails Wayback never fetches from Git.
   # config.trusted_ref_patterns = ["refs/heads/*"]
 
   # Directories (relative to Rails.root) whose contents are pulled from

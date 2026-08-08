@@ -238,16 +238,36 @@ module RailsWayback
     # a shared URL that only carries `_wayback_ref`.
     def active_branch_for(env, git, selection)
       explicit = extract_active_branch(env)
-      explicit_ref = "refs/heads/#{explicit}"
-      return explicit if explicit && selection.trusted_refs.include?(explicit_ref)
+      explicit_ref = trusted_ref_for(explicit, selection.trusted_refs)
+      return reference_label(explicit_ref) if explicit_ref
 
       inferred = git.resolve_branch_for(selection.sha)
       inferred_ref = "refs/heads/#{inferred}"
       return inferred if inferred && selection.trusted_refs.include?(inferred_ref)
 
-      selection.trusted_refs.first&.sub(%r{\Arefs/(?:heads|tags|remotes)/}, "")
+      reference_label(selection.trusted_refs.first)
     rescue StandardError
       nil
+    end
+
+    def trusted_ref_for(selector, trusted_refs)
+      return if selector.to_s.empty?
+      return selector if trusted_refs.include?(selector)
+
+      trusted_refs.find do |reference|
+        reference_name(reference) == selector || reference_label(reference) == selector
+      end
+    end
+
+    def reference_name(reference)
+      reference.to_s.sub(%r{\Arefs/(?:heads|tags|remotes)/}, "")
+    end
+
+    def reference_label(reference)
+      return if reference.to_s.empty?
+
+      name = reference_name(reference)
+      reference.start_with?("refs/tags/") ? "tag:#{name}" : name
     end
 
     # Builds the diff summary shown in the bar when a ref is active.

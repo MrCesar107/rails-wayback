@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added trusted discovery of locally stored remote-tracking branches and tags,
+  with structured ref metadata, canonical commit lookup, and no network access.
 - Added transparent historical `public/` asset discovery through standard Rails
   helpers, trusted SHA-specific asset routes, streamed cache leases, and toolbar
   provenance for current asset fallbacks.

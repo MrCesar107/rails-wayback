@@ -179,7 +179,7 @@ RSpec.describe RailsWayback::BarMiddleware do
         merged = body.join
         expect(merged).to include('data-active-branch="some-feature"')
         # Labels flip to "Rendering ..." while a ref is active.
-        expect(merged).to include(">Rendering branch<")
+        expect(merged).to include(">Rendering ref<")
       end
     end
 
@@ -200,7 +200,7 @@ RSpec.describe RailsWayback::BarMiddleware do
         merged = body.join
         expect(merged).to include(%(data-active-ref="#{sha}"))
         expect(merged).to include('data-active-branch="feature-x"')
-        expect(merged).to include(">Rendering branch<")
+        expect(merged).to include(">Rendering ref<")
       end
     end
 
@@ -221,6 +221,25 @@ RSpec.describe RailsWayback::BarMiddleware do
         merged = body.join
         expect(merged).to include(%(data-active-ref="#{sha}"))
         expect(merged).to include('data-active-branch="from-url"')
+      end
+    end
+
+    it "shows a trusted tag as the active ref label" do
+      SpecSupport.with_tmp_root do |root|
+        SpecSupport.build_git_repo(root)
+        SpecSupport.commit_file(root, "README.md", "hi", message: "init")
+        RailsWayback.configuration.trusted_ref_patterns = ["refs/heads/*", "refs/tags/*"]
+        RailsWayback.enable!
+        sha = RailsWayback::Git.new.current_commit
+        SpecSupport.run("git", "-C", root.to_s, "tag", "preview", sha)
+
+        _status, _headers, body = call(
+          path: "/letters",
+          query: "_wayback_ref=#{sha}&_wayback_branch=refs/tags/preview"
+        )
+        merged = body.join
+        expect(merged).to include('data-active-branch="tag:preview"')
+        expect(merged).to include(">Rendering ref<")
       end
     end
 

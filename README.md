@@ -72,8 +72,9 @@ any time without restarting Rails.
 With the gem enabled, load any page of your app. A dark bar appears at the
 bottom with:
 
-- `Current branch` — dropdown of your local branches.
-- `Current commit` — dropdown of the recent commits on that branch.
+- `Current ref` — dropdown of trusted branches, remote-tracking branches, and
+  tags already stored in the local repository.
+- `Current commit` — dropdown of the recent commits on that ref.
 - `Travel` — reloads the current URL using views from that commit.
 - `Return to HEAD` — appears while traveling; goes back to live views.
   It uses a server-side reset endpoint, which is also available directly at
@@ -155,9 +156,21 @@ explicit opt-in; historical templates execute inside the host Rails process,
 so only trusted refs should be used. Travel accepts only full commit SHAs and,
 by default, the commit must be reachable from a local branch. Narrow
 `trusted_ref_patterns` to branches such as `refs/heads/main` or
-`refs/heads/release/*` when reviewing locally stored refs from other sources.
-Remote refs, tags, and detached commits remain blocked unless their full ref
-names match an explicitly configured pattern.
+`refs/heads/release/*`, or explicitly add locally stored remote-tracking refs
+and tags:
+
+```ruby
+config.trusted_ref_patterns = [
+  "refs/heads/*",
+  "refs/remotes/origin/review/*",
+  "refs/tags/preview-*"
+]
+```
+
+Matching refs appear in the toolbar and can be used for commit discovery.
+Rails Wayback never runs `git fetch`: remote-tracking refs must already exist
+locally, symbolic aliases such as `origin/HEAD` are omitted, and untrusted refs
+cannot be queried through the commits endpoint. Detached commits remain blocked.
 
 This policy reduces accidental execution but is not a sandbox. Historical ERB
 and other executable template handlers run with the Rails server's filesystem,

@@ -31,7 +31,7 @@ module RailsWayback
     private
 
     def branch_label
-      @active_ref ? "Rendering branch" : "Current branch"
+      @active_ref ? "Rendering ref" : "Current ref"
     end
 
     def commit_label

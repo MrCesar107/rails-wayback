@@ -121,4 +121,57 @@ RSpec.describe RailsWayback::Git do
       expect(refs).to include("refs/heads/main", "refs/heads/feature/nested", "refs/tags/preview")
     end
   end
+
+  describe "trusted ref discovery" do
+    it "lists configured local, remote, and tag refs while excluding symbolic and untrusted refs" do
+      SpecSupport.with_tmp_root do |root|
+        SpecSupport.build_git_repo(root)
+        SpecSupport.commit_file(root, "README.md", "hi", message: "init")
+        sha = described_class.new(root: root).current_commit
+        SpecSupport.run("git", "-C", root.to_s, "branch", "release", sha)
+        SpecSupport.run("git", "-C", root.to_s, "tag", "release", sha)
+        SpecSupport.run(
+          "git", "-C", root.to_s, "update-ref", "refs/remotes/origin/review/topic", sha
+        )
+        SpecSupport.run(
+          "git", "-C", root.to_s, "update-ref", "refs/remotes/origin/untrusted", sha
+        )
+        SpecSupport.run(
+          "git", "-C", root.to_s, "symbolic-ref", "refs/remotes/origin/HEAD",
+          "refs/remotes/origin/review/topic"
+        )
+
+        git = described_class.new(root: root)
+        patterns = ["refs/heads/*", "refs/remotes/origin/review/*", "refs/tags/*"]
+        references = git.references(patterns: patterns)
+
+        expect(references.map(&:full_name)).to include(
+          "refs/heads/main",
+          "refs/heads/release",
+          "refs/remotes/origin/review/topic",
+          "refs/tags/release"
+        )
+        expect(references.map(&:full_name)).not_to include(
+          "refs/remotes/origin/HEAD",
+          "refs/remotes/origin/untrusted"
+        )
+        expect(git.reference("refs/remotes/origin/review/topic", patterns: patterns).kind).to eq(:remote)
+        expect(git.reference("tag:release", patterns: patterns).full_name).to eq("refs/tags/release")
+        expect(git.reference("release", patterns: patterns).full_name).to eq("refs/heads/release")
+      end
+    end
+
+    it "rejects commit lookup selectors outside the configured trust patterns" do
+      SpecSupport.with_tmp_root do |root|
+        SpecSupport.build_git_repo(root)
+        SpecSupport.commit_file(root, "README.md", "hi", message: "init")
+        sha = described_class.new(root: root).current_commit
+        SpecSupport.run("git", "-C", root.to_s, "update-ref", "refs/remotes/origin/review", sha)
+
+        git = described_class.new(root: root)
+        expect { git.reference("refs/remotes/origin/review", patterns: ["refs/heads/*"]) }
+          .to raise_error(described_class::GitError, /not trusted or is unavailable locally/)
+      end
+    end
+  end
 end

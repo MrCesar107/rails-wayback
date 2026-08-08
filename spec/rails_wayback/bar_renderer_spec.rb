@@ -65,7 +65,7 @@ RSpec.describe RailsWayback::BarRenderer do
 
   it "labels the dropdowns as 'Rendering ...' while traveling and 'Current ...' otherwise" do
     live = described_class.new(current_branch: "main", current_commit: "abc").render
-    expect(live).to include(">Current branch<")
+    expect(live).to include(">Current ref<")
     expect(live).to include(">Current commit<")
 
     traveling = described_class.new(
@@ -74,7 +74,7 @@ RSpec.describe RailsWayback::BarRenderer do
       active_ref: "def",
       active_branch: "master"
     ).render
-    expect(traveling).to include(">Rendering branch<")
+    expect(traveling).to include(">Rendering ref<")
     expect(traveling).to include(">Rendering commit<")
   end
 

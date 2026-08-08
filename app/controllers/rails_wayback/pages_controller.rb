@@ -14,21 +14,27 @@ module RailsWayback
     def branches
       current_branch = safe_call { git.current_branch }
       current_commit = safe_call { git.current_commit }
-      branches = safe_call { git.branches }
+      references = safe_call { git.references }
+      list = references.value || []
 
       render json: {
         current_branch: current_branch.value,
         current_commit: current_commit.value,
-        branches: branches.value || [],
-        errors: [branches.error].compact
+        branches: list.select { |reference| reference.kind == :branch }.map(&:name),
+        refs: list.map { |reference| reference_json(reference) },
+        errors: [references.error].compact
       }
     end
 
     def commits
-      branch = params[:branch].to_s.sub(/\.json\z/, "")
-      result = safe_call { git.commits(branch) }
+      selector = params[:branch].to_s.sub(/\.json\z/, "")
+      result = safe_call do
+        reference = git.reference(selector)
+        [reference, git.commits(reference.full_name)]
+      end
+      reference, commits = result.value
 
-      list = (result.value || []).map do |commit|
+      list = (commits || []).map do |commit|
         {
           sha: commit.sha,
           short_sha: commit.short_sha,
@@ -39,7 +45,8 @@ module RailsWayback
       end
 
       render json: {
-        branch: branch,
+        branch: reference&.name || selector,
+        ref: reference && reference_json(reference),
         commits: list,
         error: result.error
       }
@@ -60,6 +67,15 @@ module RailsWayback
     rescue RailsWayback::Git::GitError => e
       Rails.logger.warn("[rails-wayback] #{e.class}: #{e.message}") if defined?(Rails)
       Result.new(nil, "#{e.class}: #{e.message}")
+    end
+
+    def reference_json(reference)
+      {
+        full_name: reference.full_name,
+        name: reference.name,
+        type: reference.kind,
+        label: reference.label
+      }
     end
 
     def safe_return_to

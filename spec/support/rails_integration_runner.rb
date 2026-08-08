@@ -120,10 +120,19 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
   RailsIntegrationSupport.run!(
     "git", "update-ref", "refs/remotes/origin/untrusted", untrusted_sha, chdir: root
   )
+  RailsIntegrationSupport.run!(
+    "git", "update-ref", "refs/remotes/origin/review/contributor", good_historical_sha, chdir: root
+  )
+  RailsIntegrationSupport.run!("git", "tag", "preview-compatible", good_historical_sha, chdir: root)
 
   RailsWayback.configure do |config|
     config.app_root = root
     config.cache_root = root.join("tmp/rails_wayback")
+    config.trusted_ref_patterns = [
+      "refs/heads/*",
+      "refs/remotes/origin/review/*",
+      "refs/tags/preview-*"
+    ]
   end
 
   application_class = Class.new(Rails::Application) do
@@ -281,6 +290,14 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
     branches_payload = JSON.parse(branches_response.body)
     commits_response = request.get("/rails-wayback/commits/feature/nested")
     commits_payload = JSON.parse(commits_response.body)
+    remote_response = request.get(
+      "/rails-wayback/commits/refs/remotes/origin/review/contributor"
+    )
+    remote_payload = JSON.parse(remote_response.body)
+    tag_response = request.get("/rails-wayback/commits/refs/tags/preview-compatible")
+    tag_payload = JSON.parse(tag_response.body)
+    untrusted_response = request.get("/rails-wayback/commits/refs/remotes/origin/untrusted")
+    untrusted_payload = JSON.parse(untrusted_response.body)
     missing_response = request.get("/rails-wayback/commits/missing-branch")
     missing_payload = JSON.parse(missing_response.body)
 
@@ -290,11 +307,30 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
       current_commit_matches: branches_payload["current_commit"] == current_sha,
       includes_main: branches_payload.fetch("branches").include?("main"),
       includes_nested: branches_payload.fetch("branches").include?("feature/nested"),
+      includes_remote: branches_payload.fetch("refs").any? do |reference|
+        reference["full_name"] == "refs/remotes/origin/review/contributor" &&
+          reference["type"] == "remote"
+      end,
+      includes_tag: branches_payload.fetch("refs").any? do |reference|
+        reference["full_name"] == "refs/tags/preview-compatible" &&
+          reference["label"] == "tag:preview-compatible"
+      end,
+      excludes_untrusted_remote: branches_payload.fetch("refs").none? do |reference|
+        reference["full_name"] == "refs/remotes/origin/untrusted"
+      end,
       commits_status: commits_response.status,
       commits_branch: commits_payload["branch"],
       includes_historical_commit: commits_payload.fetch("commits").any? do |commit|
         commit["sha"] == good_historical_sha && commit["subject"] == "historical compatible view"
       end,
+      remote_commits_historical: remote_payload.fetch("commits").any? do |commit|
+        commit["sha"] == good_historical_sha
+      end,
+      tag_commits_historical: tag_payload.fetch("commits").any? do |commit|
+        commit["sha"] == good_historical_sha
+      end,
+      untrusted_commits_blocked: untrusted_payload["commits"] == [] &&
+        untrusted_payload["error"].to_s.include?("not trusted"),
       missing_status: missing_response.status,
       missing_commits_empty: missing_payload["commits"] == [],
       missing_error: missing_payload["error"].to_s.include?("GitError")
