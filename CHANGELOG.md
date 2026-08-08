@@ -41,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Structured the dependency-free toolbar JavaScript as a lifecycle-aware class
+  that cleans up listeners, cancels superseded requests, and ignores stale responses.
 - Applied cache count and byte limits automatically after materialising a new
   ref, while retaining the explicit cache inspection and pruning commands.
 - Raised the compatibility baseline to Ruby 3.3 and Rails 8.0.

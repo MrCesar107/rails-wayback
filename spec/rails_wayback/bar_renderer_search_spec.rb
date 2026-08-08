@@ -2,6 +2,7 @@
 
 require "json"
 require "open3"
+require "rails_wayback/bar_renderer"
 
 RSpec.describe RailsWayback::BarRenderer do
   let(:search_module) { File.expand_path("../../lib/rails_wayback/bar_search.js", __dir__) }

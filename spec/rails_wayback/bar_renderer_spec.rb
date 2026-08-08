@@ -48,10 +48,21 @@ RSpec.describe RailsWayback::BarRenderer do
     script = described_class::SCRIPT
 
     expect(script).to include(
-      "async function fetchBranches()",
-      "async function fetchCommits(branch)"
+      "class RailsWaybackToolbar",
+      "async fetchBranches()",
+      "async fetchCommits(branch)"
     )
     expect(script).not_to include(".then(")
+  end
+
+  it "defines an explicit dependency-free toolbar lifecycle" do
+    script = described_class::SCRIPT
+
+    expect(script).to include(
+      "connect()",
+      "disconnect()",
+      "new this.AbortController()"
+    )
   end
 
   it "renders rejected refs as escaped toolbar warnings" do
