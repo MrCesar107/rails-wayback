@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Applied cache count and byte limits automatically after materialising a new
+  ref, while retaining the explicit cache inspection and pruning commands.
 - Raised the compatibility baseline to Ruby 3.3 and Rails 8.0.
 - Added Appraisal dependency sets and a complete CI matrix for Ruby 3.3, 3.4,
   and 4.0 against Rails 8.0 and 8.1.
@@ -42,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Held a shared cache lease for the complete historical controller render so
+  pruning and cleanup cannot delete view files that an active request is using.
 - Made cache cleanup remove accumulated per-ref lock files as well as extracted
   ref directories.
 - Served toolbar CSS and JavaScript as versioned same-origin engine resources,

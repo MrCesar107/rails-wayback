@@ -4,9 +4,9 @@ module RailsWayback
   # Auto-included in every `ActionController::Base` subclass through the
   # engine's initializer. Does nothing on ordinary requests. When a
   # request carries `?_wayback_ref=<sha>` and the gem is enabled, it
-  # materialises the ref and prepends the sandbox to the view paths so
-  # the current controller renders historical templates while keeping
-  # its own instance variables intact.
+  # leases the materialised ref and prepends its directories to the view
+  # paths so the current controller renders historical templates while
+  # keeping its own instance variables intact.
   module ControllerExtensions
     extend ActiveSupport::Concern
 
@@ -15,7 +15,7 @@ module RailsWayback
     RESPONSE_HEADER = "X-RailsWayback-Ref"
 
     included do
-      before_action :__rails_wayback_prepend_views
+      around_action :__rails_wayback_with_views
       helper_method :rails_wayback_active_ref
     end
 
@@ -25,25 +25,51 @@ module RailsWayback
 
     private
 
-    def __rails_wayback_prepend_views
-      return unless RailsWayback.enabled?
+    def __rails_wayback_with_views(&action)
+      return action.call unless RailsWayback.enabled?
 
       ref = __rails_wayback_ref_from_request
-      return unless ref
+      return action.call unless ref
 
-      selection = RailsWayback::RefPolicy.new.authorize(ref)
+      selection = authorize_wayback_ref(ref)
+      return action.call unless selection
+
       request.env[RailsWayback::RefPolicy::ENV_KEY] = selection
-      return reject_wayback_ref(selection) if selection.rejected?
+      if selection.rejected?
+        reject_wayback_ref(selection)
+        return action.call
+      end
 
-      prepend_wayback_views(selection)
-    rescue RailsWayback::RefNotFoundError, RailsWayback::Git::GitError => e
-      log_warning("#{e.class}: #{e.message}")
-      write_wayback_header("error:#{e.class}")
+      render_with_wayback_views(selection, &action)
     end
 
-    def prepend_wayback_views(selection)
-      dirs = RailsWayback::ViewSource.new.view_root_for(selection.sha)
+    def authorize_wayback_ref(ref)
+      RailsWayback::RefPolicy.new.authorize(ref)
+    rescue RailsWayback::RefNotFoundError, RailsWayback::Git::GitError => e
+      handle_wayback_error(e)
+      nil
+    end
 
+    def render_with_wayback_views(selection, &action)
+      action_started = false
+      RailsWayback::ViewSource.new.with_view_roots(selection.sha) do |dirs|
+        prepend_wayback_views(selection, dirs)
+        action_started = true
+        action.call
+      end
+    rescue RailsWayback::RefNotFoundError, RailsWayback::Git::GitError => e
+      raise if action_started
+
+      handle_wayback_error(e)
+      action.call
+    end
+
+    def handle_wayback_error(error)
+      log_warning("#{error.class}: #{error.message}")
+      write_wayback_header("error:#{error.class}")
+    end
+
+    def prepend_wayback_views(selection, dirs)
       if dirs.empty?
         log_warning("no view directories materialised for ref #{selection.sha}")
         write_wayback_header("empty:#{selection.sha}")

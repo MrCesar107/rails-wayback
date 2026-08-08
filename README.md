@@ -148,12 +148,15 @@ Rails-generated CSP nonces are copied to both asset tags automatically.
 Everything above has a sensible default. Delete the initializer if you don't
 need to change anything.
 
-Cached refs use least-recently-used access metadata. `rails-wayback cache`
-reports logical payload size and file count; `rails-wayback prune` removes the
-oldest refs until the configured count and byte limits are met. Pruning is
-manual in this release and should be run when historical requests are not
-actively rendering. `rails-wayback clean` removes all ref data and per-ref lock
-files. Set either cache limit to `nil` to disable it.
+Cached refs use least-recently-used access metadata. After materialising a new
+ref, Rails Wayback automatically removes the oldest refs until the configured
+count and byte limits are met. A shared cache lease protects each ref for the
+complete historical render, so automatic or manual `prune` and `clean`
+operations wait for active previews before removing their files.
+`rails-wayback cache` reports logical payload size and file count, while
+`rails-wayback prune` applies the limits immediately. `rails-wayback clean`
+removes all ref data and per-ref lock files. Set either cache limit to `nil` to
+disable it.
 
 ## Compatibility
 

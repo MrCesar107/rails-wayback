@@ -151,4 +151,13 @@ RSpec.describe "RailsWayback Rails integration" do
       "uses_current_view" => true
     )
   end
+
+  it "automatically prunes after the render lease is released, including failed renders" do
+    expect(scenario("automatic_cache_pruning")).to include(
+      "historical_rendered" => true,
+      "incompatible_view_error" => true,
+      "newest_ref_preserved" => true,
+      "oldest_ref_pruned" => true
+    )
+  end
 end

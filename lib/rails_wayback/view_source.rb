@@ -31,30 +31,26 @@ module RailsWayback
 
     def materialize(ref)
       sha = git.resolve_ref(ref)
-      target = configuration.refs_cache_path.join(sha)
-
-      with_cache_lock(File::LOCK_SH) do
-        if fresh?(target, sha)
-          touch_access(target)
-          next target
-        end
-
-        with_ref_lock(sha) do
-          # Another process may have completed the same ref while this
-          # process was waiting for the per-ref lock.
-          if fresh?(target, sha)
-            touch_access(target)
-            next target
-          end
-
-          build_materialization(sha, target)
-        end
-      end
+      with_cache_lock(File::LOCK_SH) { materialize_locked(sha).first }
     end
 
     def view_root_for(ref)
-      target = materialize(ref)
-      configuration.view_paths.map { |p| target.join(p) }.select(&:directory?)
+      view_roots(materialize(ref))
+    end
+
+    # Keeps a shared cache lease for the complete historical render. Cache
+    # pruning and cleanup take an exclusive lease, so they wait until every
+    # request using a cached ref has finished rendering before removing files.
+    def with_view_roots(ref)
+      sha = git.resolve_ref(ref)
+      materialized = false
+
+      with_cache_lock(File::LOCK_SH) do
+        target, materialized = materialize_locked(sha)
+        yield view_roots(target)
+      end
+    ensure
+      automatic_prune if materialized
     end
 
     def cleanup!
@@ -75,6 +71,36 @@ module RailsWayback
     private
 
     attr_reader :cache_inventory
+
+    def materialize_locked(sha)
+      target = configuration.refs_cache_path.join(sha)
+      if fresh?(target, sha)
+        touch_access(target)
+        return [target, false]
+      end
+
+      with_ref_lock(sha) do
+        if fresh?(target, sha)
+          touch_access(target)
+          next [target, false]
+        end
+
+        [build_materialization(sha, target), true]
+      end
+    end
+
+    def view_roots(target)
+      configuration.view_paths.map { |path| target.join(path) }.select(&:directory?)
+    end
+
+    def automatic_prune
+      result = prune!
+      return if result.limits_satisfied?
+
+      log_cache_warning("automatic pruning could not satisfy the configured cache limits")
+    rescue StandardError => e
+      log_cache_warning("automatic pruning failed: #{e.class}: #{e.message}")
+    end
 
     def tracked_paths
       (configuration.view_paths + configuration.asset_paths).uniq
@@ -100,9 +126,13 @@ module RailsWayback
     def touch_access(target)
       FileUtils.touch(marker_path(target))
     rescue SystemCallError => e
-      if defined?(Rails) && Rails.respond_to?(:logger)
-        Rails.logger.warn("[rails-wayback] could not update cache access time: #{e.message}")
-      end
+      log_cache_warning("could not update cache access time: #{e.message}")
+    end
+
+    def log_cache_warning(message)
+      return unless defined?(Rails) && Rails.respond_to?(:logger)
+
+      Rails.logger&.warn("[rails-wayback] #{message}")
     end
 
     def build_materialization(sha, target)

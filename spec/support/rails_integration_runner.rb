@@ -390,5 +390,40 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
     }
   end
 
+  RailsIntegrationSupport.capture_scenario(results, :automatic_cache_pruning) do
+    source = RailsWayback::ViewSource.new
+    source.cleanup!
+    RailsWayback.configuration.max_cached_refs = 1
+    RailsWayback.configuration.max_cache_bytes = nil
+
+    historical_response = request.get(
+      "/integration?_wayback_ref=#{good_historical_sha}&_wayback_branch=main"
+    )
+    old_marker = RailsWayback.configuration.refs_cache_path.join(
+      good_historical_sha,
+      RailsWayback::CacheInventory::MARKER_NAME
+    )
+    old_access = Time.at(1).utc
+    File.utime(old_access, old_access, old_marker)
+    incompatible_error = begin
+      request.get(
+        "/integration?_wayback_ref=#{broken_historical_sha}&_wayback_branch=main"
+      )
+      nil
+    rescue StandardError => e
+      e
+    end
+    cached_refs = source.cache_snapshot.refs.map(&:sha)
+
+    {
+      historical_rendered: historical_response.body.include?("Historical view"),
+      incompatible_view_error: incompatible_error &&
+        RailsIntegrationSupport.exception_messages(incompatible_error)
+                               .include?("helper_removed_from_current_application"),
+      newest_ref_preserved: cached_refs == [broken_historical_sha],
+      oldest_ref_pruned: !RailsWayback.configuration.refs_cache_path.join(good_historical_sha).exist?
+    }
+  end
+
   puts JSON.generate(results)
 end
