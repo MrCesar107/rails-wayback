@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Added `bundler-audit` to development dependencies and CI/release checks so
+  known vulnerable dependency resolutions fail before merge or publication.
 - Restricted historical rendering to canonical commit SHAs reachable from
   configurable trusted Git refs, rejecting unsafe selections before extraction.
 - Added a persistent toolbar warning and first-travel confirmation explaining

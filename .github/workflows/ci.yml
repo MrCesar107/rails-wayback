@@ -7,6 +7,23 @@ on:
     branches: [main]
 
 jobs:
+  security:
+    name: Bundler Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Audit dependencies
+        run: bundle exec bundler-audit check --update
+
   lint:
     name: RuboCop
     runs-on: ubuntu-latest
