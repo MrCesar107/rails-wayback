@@ -3,6 +3,7 @@
 RailsWayback::Engine.routes.draw do
   get "assets/bar.css", to: "assets#stylesheet", format: false, as: :bar_stylesheet
   get "assets/bar.js", to: "assets#javascript", format: false, as: :bar_javascript
+  get "refs/:sha/assets/*path", to: "assets#historical", format: false, as: :historical_asset
 
   # `format: false` keeps Rails from parsing a trailing `.json` as an
   # implicit format, and the glob `*branch` allows branch names that

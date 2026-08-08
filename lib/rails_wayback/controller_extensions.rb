@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
 module RailsWayback
-  # Auto-included in every `ActionController::Base` subclass through the
-  # engine's initializer. Does nothing on ordinary requests. When a
+  # Included in every `ActionController::Base` subclass. When a
   # request carries `?_wayback_ref=<sha>` and the gem is enabled, it
   # leases the materialised ref and prepends its directories to the view
   # paths so the current controller renders historical templates while
@@ -17,6 +16,7 @@ module RailsWayback
     included do
       around_action :__rails_wayback_with_views
       helper_method :rails_wayback_active_ref
+      helper RailsWayback::HistoricalAssetHelper
     end
 
     def rails_wayback_active_ref
@@ -52,16 +52,25 @@ module RailsWayback
 
     def render_with_wayback_views(selection, &action)
       action_started = false
-      RailsWayback::ViewSource.new.with_view_roots(selection.sha) do |dirs|
-        prepend_wayback_views(selection, dirs)
-        action_started = true
-        action.call
+      RailsWayback::ViewSource.new.with_view_roots(selection.sha) do |dirs, root|
+        with_wayback_materialization(root) do
+          prepend_wayback_views(selection, dirs)
+          action_started = true
+          action.call
+        end
       end
     rescue RailsWayback::RefNotFoundError, RailsWayback::Git::GitError => e
       raise if action_started
 
       handle_wayback_error(e)
       action.call
+    end
+
+    def with_wayback_materialization(root)
+      request.env[RailsWayback::HistoricalAssetHelper::MATERIALIZATION_ROOT_ENV] = root
+      yield
+    ensure
+      request.env.delete(RailsWayback::HistoricalAssetHelper::MATERIALIZATION_ROOT_ENV)
     end
 
     def handle_wayback_error(error)

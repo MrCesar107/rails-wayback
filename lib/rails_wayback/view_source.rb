@@ -38,19 +38,25 @@ module RailsWayback
       view_roots(materialize(ref))
     end
 
-    # Keeps a shared cache lease for the complete historical render. Cache
-    # pruning and cleanup take an exclusive lease, so they wait until every
-    # request using a cached ref has finished rendering before removing files.
-    def with_view_roots(ref)
+    # Keeps a shared cache lease while the caller uses any files from the
+    # materialization. Pruning and cleanup take an exclusive lease, so they
+    # wait until every active user has finished before removing files.
+    def with_materialization(ref)
       sha = git.resolve_ref(ref)
       materialized = false
 
       with_cache_lock(File::LOCK_SH) do
         target, materialized = materialize_locked(sha)
-        yield view_roots(target)
+        yield target
       end
     ensure
       automatic_prune if materialized
+    end
+
+    def with_view_roots(ref)
+      with_materialization(ref) do |target|
+        yield view_roots(target), target
+      end
     end
 
     def cleanup!

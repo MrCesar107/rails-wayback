@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added transparent historical `public/` asset discovery through standard Rails
+  helpers, trusted SHA-specific asset routes, streamed cache leases, and toolbar
+  provenance for current asset fallbacks.
 - Added cache inventory metadata plus `rails-wayback cache` and
   `rails-wayback prune` commands with configurable LRU count and byte limits.
 - Added `rails-wayback doctor` and `wayback:doctor` diagnostics for external

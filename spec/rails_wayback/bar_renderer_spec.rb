@@ -149,5 +149,18 @@ RSpec.describe RailsWayback::BarRenderer do
       expect(html).to include("rw-provenance-mixed")
       expect(html).to include("Mixed preview: 2 historical templates, 1 current fallback")
     end
+
+    it "reports historical assets and current asset fallbacks" do
+      html = render_with(
+        changed_files: [],
+        rendered_from_ref: [],
+        historical_assets: ["public/theme.css", "public/logo.svg"],
+        current_asset_fallbacks: ["missing.css"],
+        matched: []
+      )
+
+      expect(html).to include("rw-provenance-mixed")
+      expect(html).to include("Assets: 2 historical assets, 1 current asset fallback.")
+    end
   end
 end

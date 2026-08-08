@@ -95,7 +95,10 @@ fetch git data).
 3. The same before_action calls `prepend_view_path` with the sandbox, so
    Action View resolves templates from the ref before falling back to the
    current tree.
-4. Your controller runs as usual, sets its `@` variables, and renders. The
+4. Standard Rails asset helpers resolve browser-ready files from the ref's
+   `public/` directory to immutable, SHA-specific engine URLs. Missing files
+   fall back to the current Rails asset resolver.
+5. Your controller runs as usual, sets its `@` variables, and renders. The
    visual layer (layouts, partials, ERB) comes from the past; the data and
    business logic come from the present.
 
@@ -107,7 +110,27 @@ travel cookies if that error prevents the toolbar from rendering.
 The toolbar tracks templates, partials, layouts, and collections. While
 traveling it labels a response as historical, current fallback, or mixed so
 you can tell when Rails filled a missing historical file from the current
-view tree.
+view tree. It also reports historical public assets and current asset
+fallbacks discovered through standard Rails helpers.
+
+### Historical public assets
+
+While traveling, existing calls to `asset_path`, `image_tag`,
+`stylesheet_link_tag`, `javascript_include_tag`, and the other standard Rails
+asset helpers automatically look for browser-ready files in the selected
+commit's `public/` directory. A historical file is served from a URL such as
+`/rails-wayback/refs/<sha>/assets/images/logo.svg`; the SHA prevents browser
+and proxy caches from mixing revisions. Asset responses reauthorize the ref,
+reject unsafe paths and escaping symlinks, use immutable caching, and keep a
+cache lease for the complete streamed response.
+
+If a public file is absent, the normal current Rails resolver remains the
+fallback and the toolbar reports it. Direct hard-coded URLs such as
+`/assets/application.css` bypass Rails helpers and are not rewritten.
+Historical Propshaft/Sprockets compilation, Sass or TypeScript processing,
+import maps, and JavaScript/CSS bundlers are not reproduced yet; `app/assets`
+continues to be extracted for comparison but is not served by this initial
+static-file strategy.
 
 ## Configuration (optional)
 
@@ -138,9 +161,10 @@ names match an explicitly configured pattern.
 
 This policy reduces accidental execution but is not a sandbox. Historical ERB
 and other executable template handlers run with the Rails server's filesystem,
-database, credentials, environment, and network permissions. The toolbar shows
-a permanent warning and asks for confirmation on the first travel action in
-each browser session. The response-size limit applies only to
+database, credentials, environment, and network permissions. Historical
+JavaScript also executes in the browser under the development application's
+origin. The toolbar shows a permanent warning and asks for confirmation on the
+first travel action in each browser session. The response-size limit applies only to
 toolbar injection; streaming, encoded, file, partial, and larger responses are
 returned untouched. Toolbar CSS and JavaScript are served from the mounted
 engine, so CSP policies should allow same-origin styles, scripts, and fetches.

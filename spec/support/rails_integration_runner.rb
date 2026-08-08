@@ -72,17 +72,29 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
   partial_path = root.join("app/views/integration/_historical.html.erb")
   item_path = root.join("app/views/integration/_item.html.erb")
   layout_path = root.join("app/views/layouts/application.html.erb")
+  stylesheet_path = root.join("public/theme.css")
+  logo_path = root.join("public/images/logo.svg")
+  background_path = root.join("public/images/background.txt")
 
   RailsIntegrationSupport.write(
     index_path,
     <<~ERB
       <h1>Historical view</h1>
+      <%= stylesheet_link_tag "theme" %>
+      <%= image_tag "images/logo.svg" %>
+      <span data-current-asset-fallback="<%= asset_path "missing.txt" %>"></span>
       <%= render "integration/historical" %>
       <%= render partial: "integration/item", collection: %w[one two], as: :item %>
     ERB
   )
   RailsIntegrationSupport.write(partial_path, %(<p>Historical partial</p>))
   RailsIntegrationSupport.write(item_path, %(<span><%= item %></span>))
+  RailsIntegrationSupport.write(
+    stylesheet_path,
+    %(body { color: historical; background: url("images/background.txt"); })
+  )
+  RailsIntegrationSupport.write(logo_path, %(<svg><title>Historical logo</title></svg>))
+  RailsIntegrationSupport.write(background_path, "historical background")
   good_historical_sha = RailsIntegrationSupport.commit(root, "historical compatible view")
 
   RailsIntegrationSupport.write(index_path, %(<%= helper_removed_from_current_application %>))
@@ -90,6 +102,9 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
 
   RailsIntegrationSupport.write(index_path, %(<h1>Current view</h1>))
   RailsIntegrationSupport.write(layout_path, %(<!doctype html><html><body><%= yield %></body></html>))
+  RailsIntegrationSupport.write(stylesheet_path, %(body { color: current; }))
+  RailsIntegrationSupport.write(logo_path, %(<svg><title>Current logo</title></svg>))
+  RailsIntegrationSupport.write(background_path, "current background")
   current_sha = RailsIntegrationSupport.commit(root, "current view")
   RailsIntegrationSupport.run!("git", "branch", "feature/nested", good_historical_sha, chdir: root)
 
@@ -212,6 +227,35 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
       asset_responses_exclude_bar: [stylesheet, javascript].none? do |asset|
         asset.body.include?('id="rails-wayback-bar"')
       end
+    }
+  end
+
+  RailsIntegrationSupport.capture_scenario(results, :historical_public_assets) do
+    response = request.get(
+      "/integration?_wayback_ref=#{good_historical_sha}&_wayback_branch=main"
+    )
+    base = "/rails-wayback/refs/#{good_historical_sha}/assets"
+    stylesheet = request.get("#{base}/theme.css")
+    logo = request.get("#{base}/images/logo.svg")
+    background = request.get("#{base}/images/background.txt")
+    head_response = request.request("HEAD", "#{base}/theme.css")
+    untrusted = request.get("/rails-wayback/refs/#{untrusted_sha}/assets/theme.css")
+
+    {
+      helper_stylesheet_url: response.body.include?(%(href="#{base}/theme.css")),
+      helper_image_url: response.body.include?(%(src="#{base}/images/logo.svg")),
+      current_fallback_url: response.body.include?(%(data-current-asset-fallback="/missing.txt")),
+      provenance_summary: response.body.include?("Assets: 2 historical assets, 1 current asset fallback."),
+      stylesheet_historical: stylesheet.body.include?("color: historical"),
+      stylesheet_content_type: stylesheet["Content-Type"].to_s.start_with?("text/css"),
+      logo_historical: logo.body.include?("Historical logo"),
+      relative_css_asset_historical: background.body == "historical background",
+      immutable_cache: stylesheet["Cache-Control"].to_s.include?("immutable"),
+      nosniff: stylesheet["X-Content-Type-Options"] == "nosniff",
+      etag_present: !stylesheet["ETag"].to_s.empty?,
+      head_status: head_response.status,
+      head_body_empty: head_response.body.empty?,
+      untrusted_status: untrusted.status
     }
   end
 

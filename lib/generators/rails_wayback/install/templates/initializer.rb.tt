@@ -15,7 +15,8 @@ RailsWayback.configure do |config|
   # config.trusted_ref_patterns = ["refs/heads/*"]
 
   # Directories (relative to Rails.root) whose contents are pulled from
-  # the target git ref and used to render the historical preview.
+  # the target git ref. Browser-ready files under historical public/ are
+  # discovered through standard Rails helpers; pipeline builds are not run.
   # config.view_paths  = %w[app/views]
   # config.asset_paths = %w[app/assets public]
 

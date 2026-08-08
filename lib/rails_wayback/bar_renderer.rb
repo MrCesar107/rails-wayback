@@ -71,6 +71,7 @@ module RailsWayback
       <<~HTML.strip
         <div class="#{css_class}">
           #{provenance_html}
+          #{asset_provenance_html}
           <span class="rw-diff-msg">#{escape(message)}</span>
           #{list_html}
         </div>
@@ -100,6 +101,18 @@ module RailsWayback
 
     def count_label(count, singular)
       "#{count} #{singular}#{"s" unless count == 1}"
+    end
+
+    def asset_provenance_html
+      historical = Array(@diff_info[:historical_assets])
+      current = Array(@diff_info[:current_asset_fallbacks])
+      return "" if historical.empty? && current.empty?
+
+      labels = []
+      labels << count_label(historical.size, "historical asset") if historical.any?
+      labels << count_label(current.size, "current asset fallback") if current.any?
+      css_class = current.any? ? "rw-provenance-mixed" : "rw-provenance-historical"
+      %(<span class="rw-provenance #{css_class}">Assets: #{escape(labels.join(", "))}.</span>)
     end
 
     def diff_details(summary, files)

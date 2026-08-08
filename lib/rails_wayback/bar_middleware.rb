@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
 require "cgi"
+require "rails_wayback/asset_provenance"
 require "rails_wayback/bar_renderer"
+require "rails_wayback/engine_mount"
 require "rails_wayback/ref_policy"
 
 module RailsWayback
@@ -265,12 +267,15 @@ module RailsWayback
       )
       rendered_from_ref = rendered[:historical]
       rendered_from_current = rendered[:current]
+      assets = RailsWayback::AssetProvenance.paths_by_origin(tracker.entries)
       matched = changed_files & rendered_from_ref
 
       {
         changed_files: changed_files,
         rendered_from_ref: rendered_from_ref,
         rendered_from_current: rendered_from_current,
+        historical_assets: assets[:historical],
+        current_asset_fallbacks: assets[:current],
         preview_mode: preview_mode(rendered_from_ref, rendered_from_current),
         matched: matched
       }
@@ -336,11 +341,7 @@ module RailsWayback
     end
 
     def engine_mount
-      RailsWayback::Engine.routes.default_url_options[:script_name] ||
-        RailsWayback::Engine.routes.find_script_name({}) ||
-        "/rails-wayback"
-    rescue StandardError
-      "/rails-wayback"
+      RailsWayback::EngineMount.path
     end
   end
 end

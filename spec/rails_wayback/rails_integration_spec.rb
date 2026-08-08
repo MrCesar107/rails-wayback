@@ -64,6 +64,25 @@ RSpec.describe "RailsWayback Rails integration" do
     )
   end
 
+  it "discovers and safely serves historical public assets through standard helpers" do
+    expect(scenario("historical_public_assets")).to include(
+      "helper_stylesheet_url" => true,
+      "helper_image_url" => true,
+      "current_fallback_url" => true,
+      "provenance_summary" => true,
+      "stylesheet_historical" => true,
+      "stylesheet_content_type" => true,
+      "logo_historical" => true,
+      "relative_css_asset_historical" => true,
+      "immutable_cache" => true,
+      "nosniff" => true,
+      "etag_present" => true,
+      "head_status" => 200,
+      "head_body_empty" => true,
+      "untrusted_status" => 403
+    )
+  end
+
   it "preserves HEAD, fragment, and lazy enumerable responses" do
     expect(scenario("response_safety")).to include(
       "head_status" => 200,
