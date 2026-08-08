@@ -73,8 +73,10 @@ With the gem enabled, load any page of your app. A dark bar appears at the
 bottom with:
 
 - `Current ref` — dropdown of trusted branches, remote-tracking branches, and
-  tags already stored in the local repository.
-- `Current commit` — dropdown of the recent commits on that ref.
+  tags already stored in the local repository. Its search box filters the
+  loaded refs by name, label, or type.
+- `Current commit` — dropdown of the recent commits on that ref. Its search
+  box filters the loaded commits by SHA, subject, author, or date.
 - `Travel` — reloads the current URL using views from that commit.
 - `Return to HEAD` — appears while traveling; goes back to live views.
   It uses a server-side reset endpoint, which is also available directly at
@@ -168,6 +170,9 @@ config.trusted_ref_patterns = [
 ```
 
 Matching refs appear in the toolbar and can be used for commit discovery.
+Ref and commit search is performed in the browser over the data already loaded
+by the toolbar; commit search is therefore limited to `max_commits` entries for
+the selected ref and does not run additional Git commands or network requests.
 Rails Wayback never runs `git fetch`: remote-tracking refs must already exist
 locally, symbolic aliases such as `origin/HEAD` are omitted, and untrusted refs
 cannot be queried through the commits endpoint. Detached commits remain blocked.

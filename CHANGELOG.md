@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added accessible, client-side search boxes for the toolbar's ref and commit
+  selectors, including selection preservation and live result counts.
 - Added trusted discovery of locally stored remote-tracking branches and tags,
   with structured ref metadata, canonical commit lookup, and no network access.
 - Added transparent historical `public/` asset discovery through standard Rails

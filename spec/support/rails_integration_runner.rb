@@ -219,6 +219,9 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
       external_javascript: response.body.include?(
         %(/rails-wayback/assets/bar.js?v=#{RailsWayback::VERSION})
       ),
+      branch_search_control: response.body.include?("data-rw-branch-search"),
+      commit_search_control: response.body.include?("data-rw-commit-search"),
+      search_module_packaged: javascript.body.include?("RailsWaybackSearch"),
       inline_styles_absent: !response.body.include?("<style"),
       inline_javascript_absent: !response.body.include?("(function ()"),
       stylesheet_status: stylesheet.status,

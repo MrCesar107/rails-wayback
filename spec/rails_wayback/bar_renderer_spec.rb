@@ -27,6 +27,33 @@ RSpec.describe RailsWayback::BarRenderer do
     expect(html).not_to include("(function ()")
   end
 
+  it "renders accessible search controls for refs and commits" do
+    html = described_class.new(current_branch: "main", current_commit: "abc1234").render
+
+    expect(html).to include(
+      'type="search" data-rw-branch-search',
+      'aria-label="Search Git refs"',
+      'aria-controls="rails-wayback-branches"',
+      'id="rails-wayback-branches" data-rw-branch',
+      'data-rw-branch-results role="status" aria-live="polite"',
+      'type="search" data-rw-commit-search',
+      'aria-label="Search commits"',
+      'aria-controls="rails-wayback-commits"',
+      'id="rails-wayback-commits" data-rw-commit',
+      'data-rw-commit-results role="status" aria-live="polite"'
+    )
+  end
+
+  it "uses async functions for toolbar requests without promise callback chains" do
+    script = described_class::SCRIPT
+
+    expect(script).to include(
+      "async function fetchBranches()",
+      "async function fetchCommits(branch)"
+    )
+    expect(script).not_to include(".then(")
+  end
+
   it "renders rejected refs as escaped toolbar warnings" do
     html = described_class.new(
       current_branch: "main",

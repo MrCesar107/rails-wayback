@@ -8,12 +8,24 @@
      data-preview-mode="<%= escape(@diff_info&.dig(:preview_mode).to_s) %>">
   <div class="rw-bar-inner">
     <div class="rw-field">
-      <label><%= escape(branch_label) %></label>
-      <select data-rw-branch aria-label="Git ref"></select>
+      <label for="rails-wayback-branches"><%= escape(branch_label) %></label>
+      <div class="rw-selector">
+        <input type="search" data-rw-branch-search aria-label="Search Git refs"
+               aria-controls="rails-wayback-branches" placeholder="Search refs"
+               autocomplete="off" spellcheck="false" disabled>
+        <select id="rails-wayback-branches" data-rw-branch aria-label="Git ref" disabled></select>
+      </div>
+      <span class="rw-search-status" data-rw-branch-results role="status" aria-live="polite"></span>
     </div>
     <div class="rw-field rw-flex">
-      <label><%= escape(commit_label) %></label>
-      <select data-rw-commit></select>
+      <label for="rails-wayback-commits"><%= escape(commit_label) %></label>
+      <div class="rw-selector">
+        <input type="search" data-rw-commit-search aria-label="Search commits"
+               aria-controls="rails-wayback-commits" placeholder="Search commits"
+               autocomplete="off" spellcheck="false" disabled>
+        <select id="rails-wayback-commits" data-rw-commit aria-label="Git commit" disabled></select>
+      </div>
+      <span class="rw-search-status" data-rw-commit-results role="status" aria-live="polite"></span>
     </div>
     <div class="rw-state" data-rw-state></div>
     <button type="button" data-rw-travel class="rw-btn rw-btn-primary">Travel</button>

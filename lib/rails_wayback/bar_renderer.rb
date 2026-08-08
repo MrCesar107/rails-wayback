@@ -10,7 +10,8 @@ module RailsWayback
   class BarRenderer
     TEMPLATE = ERB.new(File.read(File.expand_path("bar_renderer.html.erb", __dir__))).freeze
     STYLES = File.read(File.expand_path("bar_renderer.css", __dir__)).freeze
-    SCRIPT = File.read(File.expand_path("bar_renderer.js", __dir__)).freeze
+    SEARCH_SCRIPT = File.read(File.expand_path("bar_search.js", __dir__)).freeze
+    SCRIPT = [SEARCH_SCRIPT, File.read(File.expand_path("bar_renderer.js", __dir__))].join("\n").freeze
 
     def initialize(current_branch:, current_commit:, active_ref: nil, active_branch: nil,
                    engine_mount: "/rails-wayback", diff_info: nil, csp_nonce: nil, ref_error: nil)
