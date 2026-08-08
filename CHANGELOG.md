@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-08
+
 ### Security
 
 - Added `bundler-audit` to development dependencies and CI/release checks so
@@ -108,6 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a conditional mount into `config/routes.rb`, an optional initializer, and
   a `.gitignore` entry for `tmp/rails_wayback/`.
 
-[Unreleased]: https://github.com/MrCesar107/rails-wayback/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/MrCesar107/rails-wayback/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/MrCesar107/rails-wayback/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/MrCesar107/rails-wayback/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/MrCesar107/rails-wayback/releases/tag/v0.1.0
