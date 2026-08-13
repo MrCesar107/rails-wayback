@@ -27,21 +27,30 @@ RSpec.describe RailsWayback::BarRenderer do
     expect(html).not_to include("(function ()")
   end
 
-  it "renders accessible search controls for refs and commits" do
+  it "renders accessible searchable dropdowns for refs and commits" do
     html = described_class.new(current_branch: "main", current_commit: "abc1234").render
 
     expect(html).to include(
+      'data-rw-branch-combobox',
+      'data-rw-branch-trigger',
+      'aria-haspopup="listbox"',
+      'aria-expanded="false"',
       'type="search" data-rw-branch-search',
       'aria-label="Search Git refs"',
       'aria-controls="rails-wayback-branches"',
-      'id="rails-wayback-branches" data-rw-branch',
+      'id="rails-wayback-branches" data-rw-branch-options role="listbox"',
       'data-rw-branch-results role="status" aria-live="polite"',
+      'data-rw-commit-combobox',
+      'data-rw-commit-trigger',
       'type="search" data-rw-commit-search',
       'aria-label="Search commits"',
       'aria-controls="rails-wayback-commits"',
-      'id="rails-wayback-commits" data-rw-commit',
+      'id="rails-wayback-commits" data-rw-commit-options role="listbox"',
       'data-rw-commit-results role="status" aria-live="polite"'
     )
+    expect(html).to match(/data-rw-branch-dropdown[^>]*hidden.*data-rw-branch-search/m)
+    expect(html).to match(/data-rw-commit-dropdown[^>]*hidden.*data-rw-commit-search/m)
+    expect(html).not_to include("<select")
   end
 
   it "uses async functions for toolbar requests without promise callback chains" do

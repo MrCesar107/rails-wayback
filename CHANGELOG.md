@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Replaced the toolbar's separate search fields and native ref/commit selectors
+  with accessible searchable dropdowns that keep search inside the options panel
+  and support keyboard navigation, focus restoration, and outside-click closing.
+
 ### Fixed
 
 - Replaced Rails' generic 500 page with a self-contained recovery response when

@@ -20,8 +20,10 @@ RSpec.describe RailsWayback::BarRenderer do
     skip "Node.js is required to exercise the packaged toolbar controller"
   end
 
-  it "cleans up listeners and requests while ignoring stale commit responses" do
+  it "drives searchable dropdowns and safely manages their lifecycle" do
     expect(run_controller_test).to eq(
+      "searchableDropdowns" => true,
+      "keyboardSelection" => true,
       "lifecycle" => true,
       "staleResponseIgnored" => true
     )
