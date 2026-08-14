@@ -10,11 +10,13 @@ module RailsWayback
   class TravelErrorPage
     MAX_ERROR_MESSAGE_BYTES = 2_000
 
-    def initialize(branch:, error:, ref:, reset_url:)
+    def initialize(authenticity_token:, branch:, error:, ref:, return_to:, travel_url:)
+      @authenticity_token = authenticity_token.to_s
       @branch = branch.to_s
       @error = error
       @ref = ref.to_s
-      @reset_url = reset_url.to_s
+      @return_to = return_to.to_s
+      @travel_url = travel_url.to_s
     end
 
     def render
@@ -35,7 +37,12 @@ module RailsWayback
             #{branch_html}
             <p><strong>Commit:</strong> <code>#{escape(@ref)}</code></p>
             <p><strong>Error:</strong> <code>#{escape(error_summary)}</code></p>
-            <p><a href="#{escape(@reset_url)}">Return to current version</a></p>
+            <form action="#{escape(@travel_url)}" method="post">
+              <input type="hidden" name="_method" value="delete">
+              <input type="hidden" name="authenticity_token" value="#{escape(@authenticity_token)}">
+              <input type="hidden" name="return_to" value="#{escape(@return_to)}">
+              <button type="submit">Return to current version</button>
+            </form>
           </body>
         </html>
       HTML

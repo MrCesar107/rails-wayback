@@ -9,12 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Replaced the toolbar's separate search fields and native ref/commit selectors
-  with accessible searchable dropdowns that keep search inside the options panel
-  and support keyboard navigation, focus restoration, and outside-click closing.
+- Added accessible searchable dropdowns that progressively enhance the native
+  ref/commit selectors, keep search inside the options panel, and support
+  keyboard navigation, focus restoration, and outside-click closing.
+- Extracted the shared combobox behavior from the toolbar controller so ref and
+  commit selectors use one focused, independently testable implementation.
+- Moved travel state changes into resourceful, CSRF-protected Rails controller
+  actions with server-owned HTTP-only cookies and safe local redirects.
+- Split Git reference and commit endpoints into resource-oriented controllers,
+  and moved toolbar state construction out of the response middleware.
+- Moved the toolbar template into the engine's isolated `app/views` hierarchy
+  and made native HTML forms the baseline before JavaScript enhancement.
+- Replaced custom middleware query and cookie parsing with
+  `ActionDispatch::Request`.
+- Centralized Git ref parsing, labels, and selector matching in one internal
+  value object shared by discovery, travel, toolbar state, and rendering.
+- Added structured, logged failure boundaries for optional toolbar and Git
+  discovery work while allowing unexpected errors to surface until the outer
+  toolbar-injection boundary.
+- Documented the supported Ruby API and configuration extension surface, and
+  explicitly classified engine endpoints and implementation objects as
+  internal.
+
+### Added
+
+- Added focused Rails request specs for reference discovery, commit discovery,
+  and travel creation/deletion, including failure responses, cookies, and safe
+  redirects.
 
 ### Fixed
 
+- Removed the state-changing GET reset endpoint; recovery now submits a
+  CSRF-protected DELETE form to the travel resource.
 - Replaced Rails' generic 500 page with a self-contained recovery response when
   a materialised historical template is incompatible with the current runtime,
   without intercepting unrelated application errors.

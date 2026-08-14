@@ -10,6 +10,8 @@ module RailsWayback
   class AssetsController < ApplicationController
     CACHE_CONTROL = "public, max-age=31536000, immutable"
 
+    skip_forgery_protection
+
     def stylesheet
       render_asset(BarRenderer::STYLES, "text/css")
     end

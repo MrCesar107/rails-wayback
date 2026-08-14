@@ -52,6 +52,9 @@ RSpec.describe "RailsWayback Rails integration" do
       "external_javascript" => true,
       "branch_search_control" => true,
       "commit_search_control" => true,
+      "html_first_travel_form" => true,
+      "html_first_reset_form" => true,
+      "authenticity_token_present" => true,
       "search_module_packaged" => true,
       "inline_styles_absent" => true,
       "inline_javascript_absent" => true,
@@ -63,7 +66,8 @@ RSpec.describe "RailsWayback Rails integration" do
       "javascript_body" => true,
       "immutable_cache" => true,
       "nosniff" => true,
-      "asset_responses_exclude_bar" => true
+      "asset_responses_exclude_bar" => true,
+      "engine_template_isolated" => true
     )
   end
 
@@ -99,9 +103,9 @@ RSpec.describe "RailsWayback Rails integration" do
     )
   end
 
-  it "serves branch and commit endpoints, including nested and missing branches" do
-    expect(scenario("branch_endpoints")).to include(
-      "branches_status" => 200,
+  it "serves reference and commit resources, including nested and missing refs" do
+    expect(scenario("reference_endpoints")).to include(
+      "references_status" => 200,
       "current_branch" => "main",
       "current_commit_matches" => true,
       "includes_main" => true,
@@ -126,7 +130,7 @@ RSpec.describe "RailsWayback Rails integration" do
       "status" => 500,
       "recovery_page" => true,
       "error_details" => true,
-      "reset_link" => true,
+      "reset_form" => true,
       "error_header" => true,
       "unrelated_application_error_propagates" => true,
       "current_template_error_propagates" => true,
@@ -134,12 +138,20 @@ RSpec.describe "RailsWayback Rails integration" do
     )
   end
 
-  it "clears travel cookies and rejects external reset destinations" do
-    expect(scenario("reset_security")).to include(
-      "status" => 302,
+  it "owns travel cookies on the server and uses resourceful state-changing routes" do
+    expect(scenario("travel_resource")).to include(
+      "create_status" => 302,
+      "sets_ref_cookie" => true,
+      "sets_branch_cookie" => true,
+      "create_redirects_back" => true,
+      "destroy_status" => 302,
       "clears_ref_cookie" => true,
       "clears_branch_cookie" => true,
-      "rejects_external_return" => true
+      "rejects_external_return" => true,
+      "invalid_ref_rejected" => true,
+      "missing_confirmation_rejected" => true,
+      "get_does_not_mutate" => true,
+      "legacy_reset_removed" => true
     )
   end
 

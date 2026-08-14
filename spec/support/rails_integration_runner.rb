@@ -76,6 +76,7 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
   stylesheet_path = root.join("public/theme.css")
   logo_path = root.join("public/images/logo.svg")
   background_path = root.join("public/images/background.txt")
+  host_toolbar_path = root.join("app/views/rails_wayback/toolbar/_toolbar.html.erb")
 
   RailsIntegrationSupport.write(
     index_path,
@@ -96,6 +97,7 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
   )
   RailsIntegrationSupport.write(logo_path, %(<svg><title>Historical logo</title></svg>))
   RailsIntegrationSupport.write(background_path, "historical background")
+  RailsIntegrationSupport.write(host_toolbar_path, "HOST TOOLBAR OVERRIDE")
   good_historical_sha = RailsIntegrationSupport.commit(root, "historical compatible view")
 
   RailsIntegrationSupport.write(index_path, %(<%= helper_removed_from_current_application %>))
@@ -234,6 +236,13 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
       ),
       branch_search_control: response.body.include?("data-rw-branch-search"),
       commit_search_control: response.body.include?("data-rw-commit-search"),
+      html_first_travel_form: response.body.include?('action="/rails-wayback/travel"') &&
+        response.body.include?('name="branch"') && response.body.include?('name="ref"'),
+      html_first_reset_form: response.body.include?("data-rw-reset-form") &&
+        response.body.include?('name="_method" value="delete"'),
+      authenticity_token_present: response.body.match?(
+        /name="authenticity_token" value="[^"]+"/
+      ),
       search_module_packaged: javascript.body.include?("RailsWaybackSearch"),
       inline_styles_absent: !response.body.include?("<style"),
       inline_javascript_absent: !response.body.include?("(function ()"),
@@ -251,7 +260,8 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
       end,
       asset_responses_exclude_bar: [stylesheet, javascript].none? do |asset|
         asset.body.include?('id="rails-wayback-bar"')
-      end
+      end,
+      engine_template_isolated: !response.body.include?("HOST TOOLBAR OVERRIDE")
     }
   end
 
@@ -301,37 +311,39 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
     }
   end
 
-  RailsIntegrationSupport.capture_scenario(results, :branch_endpoints) do
-    branches_response = request.get("/rails-wayback/branches")
-    branches_payload = JSON.parse(branches_response.body)
-    commits_response = request.get("/rails-wayback/commits/feature/nested")
+  RailsIntegrationSupport.capture_scenario(results, :reference_endpoints) do
+    references_response = request.get("/rails-wayback/references")
+    references_payload = JSON.parse(references_response.body)
+    commits_response = request.get("/rails-wayback/commits?reference=feature%2Fnested")
     commits_payload = JSON.parse(commits_response.body)
     remote_response = request.get(
-      "/rails-wayback/commits/refs/remotes/origin/review/contributor"
+      "/rails-wayback/commits?reference=refs%2Fremotes%2Forigin%2Freview%2Fcontributor"
     )
     remote_payload = JSON.parse(remote_response.body)
-    tag_response = request.get("/rails-wayback/commits/refs/tags/preview-compatible")
+    tag_response = request.get("/rails-wayback/commits?reference=refs%2Ftags%2Fpreview-compatible")
     tag_payload = JSON.parse(tag_response.body)
-    untrusted_response = request.get("/rails-wayback/commits/refs/remotes/origin/untrusted")
+    untrusted_response = request.get(
+      "/rails-wayback/commits?reference=refs%2Fremotes%2Forigin%2Funtrusted"
+    )
     untrusted_payload = JSON.parse(untrusted_response.body)
-    missing_response = request.get("/rails-wayback/commits/missing-branch")
+    missing_response = request.get("/rails-wayback/commits?reference=missing-branch")
     missing_payload = JSON.parse(missing_response.body)
 
     {
-      branches_status: branches_response.status,
-      current_branch: branches_payload["current_branch"],
-      current_commit_matches: branches_payload["current_commit"] == current_sha,
-      includes_main: branches_payload.fetch("branches").include?("main"),
-      includes_nested: branches_payload.fetch("branches").include?("feature/nested"),
-      includes_remote: branches_payload.fetch("refs").any? do |reference|
+      references_status: references_response.status,
+      current_branch: references_payload["current_branch"],
+      current_commit_matches: references_payload["current_commit"] == current_sha,
+      includes_main: references_payload.fetch("branches").include?("main"),
+      includes_nested: references_payload.fetch("branches").include?("feature/nested"),
+      includes_remote: references_payload.fetch("refs").any? do |reference|
         reference["full_name"] == "refs/remotes/origin/review/contributor" &&
           reference["type"] == "remote"
       end,
-      includes_tag: branches_payload.fetch("refs").any? do |reference|
+      includes_tag: references_payload.fetch("refs").any? do |reference|
         reference["full_name"] == "refs/tags/preview-compatible" &&
           reference["label"] == "tag:preview-compatible"
       end,
-      excludes_untrusted_remote: branches_payload.fetch("refs").none? do |reference|
+      excludes_untrusted_remote: references_payload.fetch("refs").none? do |reference|
         reference["full_name"] == "refs/remotes/origin/untrusted"
       end,
       commits_status: commits_response.status,
@@ -382,9 +394,9 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
       status: broken_response.status,
       recovery_page: broken_response.body.include?("Historical preview failed"),
       error_details: broken_response.body.include?("helper_removed_from_current_application"),
-      reset_link: broken_response.body.include?(
-        "href=\"/rails-wayback/reset?return_to=%2Fintegration\""
-      ),
+      reset_form: broken_response.body.include?('action="/rails-wayback/travel"') &&
+        broken_response.body.include?('name="_method" value="delete"') &&
+        broken_response.body.include?('name="return_to" value="/integration"'),
       error_header: RailsIntegrationSupport.response_header(
         broken_response,
         RailsWayback::TravelErrorHandler::ERROR_HEADER
@@ -400,25 +412,68 @@ Dir.mktmpdir("rails-wayback-integration-") do |root_string|
     }
   end
 
-  RailsIntegrationSupport.capture_scenario(results, :reset_security) do
-    reset_response = request.get(
-      "/rails-wayback/reset?return_to=%2Fintegration",
-      "HTTP_COOKIE" => "rails_wayback_ref=#{broken_historical_sha}; rails_wayback_branch=main"
+  RailsIntegrationSupport.capture_scenario(results, :travel_resource) do
+    create_response = request.post(
+      "/rails-wayback/travel",
+      params: {
+        ref: good_historical_sha,
+        branch: "refs/heads/main",
+        confirmed: "true",
+        return_to: "/integration?tab=preview"
+      }
     )
-    reset_cookies = Array(reset_response.headers["set-cookie"]).join("\n")
-    unsafe_response = request.get(
-      "/rails-wayback/reset?return_to=https%3A%2F%2Fevil.example%2Fescape"
+    create_cookies = Array(create_response.headers["set-cookie"]).join("\n")
+    destroy_response = request.request(
+      "DELETE",
+      "/rails-wayback/travel?return_to=%2Fintegration",
+      "HTTP_COOKIE" => "rails_wayback_ref=#{good_historical_sha}; rails_wayback_branch=refs%2Fheads%2Fmain"
+    )
+    destroy_cookies = Array(destroy_response.headers["set-cookie"]).join("\n")
+    unsafe_response = request.request(
+      "DELETE",
+      "/rails-wayback/travel?return_to=https%3A%2F%2Fevil.example%2Fescape"
     )
     unsafe_location = URI.parse(unsafe_response.headers.fetch("location"))
+    invalid_response = request.post(
+      "/rails-wayback/travel",
+      params: { confirmed: "true", ref: "HEAD~1", return_to: "/integration" }
+    )
+    unconfirmed_response = request.post(
+      "/rails-wayback/travel",
+      params: { ref: good_historical_sha, return_to: "/integration" }
+    )
+    get_rejected = begin
+      request.get("/rails-wayback/travel?return_to=%2Fintegration")
+      false
+    rescue ActionController::RoutingError
+      true
+    end
+    legacy_rejected = begin
+      request.get("/rails-wayback/reset?return_to=%2Fintegration")
+      false
+    rescue ActionController::RoutingError
+      true
+    end
 
     {
-      status: reset_response.status,
-      clears_ref_cookie: reset_cookies.include?("rails_wayback_ref=") &&
-        reset_cookies.include?("max-age=0"),
-      clears_branch_cookie: reset_cookies.include?("rails_wayback_branch=") &&
-        reset_cookies.include?("max-age=0"),
+      create_status: create_response.status,
+      sets_ref_cookie: create_cookies.include?("rails_wayback_ref=#{good_historical_sha}"),
+      sets_branch_cookie: create_cookies.include?("rails_wayback_branch=refs%2Fheads%2Fmain"),
+      create_redirects_back: URI.parse(create_response.headers.fetch("location")).request_uri ==
+        "/integration?tab=preview",
+      destroy_status: destroy_response.status,
+      clears_ref_cookie: destroy_cookies.include?("rails_wayback_ref=") &&
+        destroy_cookies.include?("max-age=0"),
+      clears_branch_cookie: destroy_cookies.include?("rails_wayback_branch=") &&
+        destroy_cookies.include?("max-age=0"),
       rejects_external_return: unsafe_location.host == "example.org" &&
-        unsafe_location.path == "/"
+        unsafe_location.path == "/",
+      invalid_ref_rejected: invalid_response.status == 422 &&
+        !invalid_response.headers["set-cookie"].to_s.include?("rails_wayback_ref=#{good_historical_sha}"),
+      missing_confirmation_rejected: unconfirmed_response.status == 422 &&
+        unconfirmed_response.headers["set-cookie"].to_s.empty?,
+      get_does_not_mutate: get_rejected,
+      legacy_reset_removed: legacy_rejected
     }
   end
 

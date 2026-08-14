@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const Toolbar = require(process.argv[2]);
 const search = require(process.argv[3]);
+const Combobox = require(process.argv[4]);
 
 function element(document, dataset) {
   let innerHTML = "";
@@ -10,6 +11,7 @@ function element(document, dataset) {
     attributes,
     children: [],
     classList: { add() {}, remove() {} },
+    checked: false,
     dataset: dataset || {},
     disabled: false,
     hidden: false,
@@ -31,11 +33,13 @@ function element(document, dataset) {
     dispatch(type, properties) {
       const event = Object.assign({
         currentTarget: this,
+        defaultPrevented: false,
         key: "",
-        preventDefault() {},
+        preventDefault() { this.defaultPrevented = true; },
         target: this
       }, properties);
       listeners.filter((entry) => entry.type === type).forEach((entry) => entry.listener(event));
+      return event;
     },
     focus() { document.activeElement = this; },
     getAttribute(name) { return attributes.get(name) || null; },
@@ -50,10 +54,11 @@ function element(document, dataset) {
   return node;
 }
 
-function fixture(fetch) {
+function fixture(fetch, overrides) {
+  const options = overrides || {};
+  const cookies = [];
   const document = {
     activeElement: null,
-    cookie: "",
     listeners: [],
     addEventListener(type, listener, options) {
       this.listeners.push({ type, listener, signal: options && options.signal });
@@ -64,15 +69,38 @@ function fixture(fetch) {
       this.listeners.filter((entry) => entry.type === type).forEach((entry) => entry.listener(event));
     }
   };
+  Object.defineProperty(document, "cookie", {
+    get() { return cookies.at(-1) || ""; },
+    set(value) { cookies.push(value); }
+  });
   const fields = {};
   [
     "branch-combobox", "branch-trigger", "branch-value", "branch-dropdown",
     "branch-search", "branch-options", "branch-results", "commit-combobox",
     "commit-trigger", "commit-value", "commit-dropdown", "commit-search",
-    "commit-options", "commit-results", "state", "travel", "reset"
+    "commit-options", "commit-results", "state", "travel", "reset",
+    "travel-form", "reset-form", "native", "enhanced", "branch-native", "commit-native",
+    "trust-confirmation", "trust-field"
   ].forEach((name) => { fields[`[data-rw-${name}]`] = element(document); });
   fields["[data-rw-branch-dropdown]"].hidden = true;
   fields["[data-rw-commit-dropdown]"].hidden = true;
+  fields["[data-rw-enhanced]"].hidden = true;
+
+  ["branch", "commit"].forEach((kind) => {
+    const combobox = fields[`[data-rw-${kind}-combobox]`];
+    const scopedFields = {
+      "[data-rw-trigger]": fields[`[data-rw-${kind}-trigger]`],
+      "[data-rw-value]": fields[`[data-rw-${kind}-value]`],
+      "[data-rw-dropdown]": fields[`[data-rw-${kind}-dropdown]`],
+      "[data-rw-search]": fields[`[data-rw-${kind}-search]`],
+      "[data-rw-options]": fields[`[data-rw-${kind}-options]`],
+      "[data-rw-results]": fields[`[data-rw-${kind}-results]`]
+    };
+    combobox.querySelector = (selector) => scopedFields[selector];
+    combobox.contains = (target) => (
+      target === combobox || Object.values(scopedFields).some((field) => field.contains(target))
+    );
+  });
 
   const root = element(document);
   root.dataset = {
@@ -86,19 +114,29 @@ function fixture(fetch) {
   root.querySelector = (selector) => fields[selector];
   root.contains = (target) => target === root || Object.values(fields).some((field) => field.contains(target));
 
+  const assignedUrls = [];
+  const storage = new Map();
   const window = {
-    confirm() { return true; },
+    URL,
+    confirm: options.confirm || (() => true),
     location: {
-      assign() {},
+      assign(url) { assignedUrls.push(url); },
       href: "https://example.test/projects/1",
       origin: "https://example.test"
     },
-    sessionStorage: { getItem() { return null; }, setItem() {} }
+    sessionStorage: {
+      getItem(key) { return storage.get(key) || null; },
+      setItem(key, value) { storage.set(key, value); }
+    }
   };
   return {
+    assignedUrls,
+    cookies,
     document,
     fields,
-    toolbar: new Toolbar(root, { AbortController, document, fetch, search, window })
+    storage,
+    window,
+    toolbar: new Toolbar(root, { AbortController, Combobox, document, fetch, search, window })
   };
 }
 
@@ -125,8 +163,8 @@ async function testSearchableDropdowns() {
     ]
   };
   const fetch = async (url) => {
-    if (url.endsWith("/branches")) return response({ refs });
-    const branch = url.slice(url.indexOf("/commits/") + 9);
+    if (url.endsWith("/references")) return response({ refs });
+    const branch = new URL(url, "https://example.test").searchParams.get("reference");
     return response({ commits: commits[branch] || [] });
   };
   const { document, fields, toolbar } = fixture(fetch);
@@ -150,11 +188,13 @@ async function testSearchableDropdowns() {
   branchSearch.dispatch("keydown", { key: "ArrowDown" });
   branchSearch.dispatch("keydown", { key: "Enter" });
   await settle();
-  assert.equal(toolbar.selectedBranchValue, "refs/heads/feature/search");
+  assert.equal(toolbar.branchBox.value, "refs/heads/feature/search");
   assert.equal(branchDropdown.hidden, true);
   assert.equal(document.activeElement, branchTrigger);
   assert.equal(fields["[data-rw-branch-value]"].textContent, "feature/search");
   assert.equal(fields["[data-rw-commit-value]"].textContent, "ccccccc — Feature result");
+  assert.equal(fields["[data-rw-branch-native]"].value, "refs/heads/feature/search");
+  assert.equal(fields["[data-rw-commit-native]"].value, "c".repeat(40));
 
   const commitTrigger = fields["[data-rw-commit-trigger]"];
   const commitDropdown = fields["[data-rw-commit-dropdown]"];
@@ -181,35 +221,99 @@ async function testStaleResponse() {
   const signals = [];
   const fetch = (url, options) => {
     signals.push(options.signal);
-    if (url.endsWith("/branches")) return Promise.resolve(response({ refs: [] }));
+    if (url.endsWith("/references")) return Promise.resolve(response({ refs: [] }));
     return new Promise((resolve) => pending.set(url, resolve));
   };
   const { toolbar } = fixture(fetch);
   await toolbar.connect();
 
   const first = toolbar.fetchCommits("refs/heads/first");
-  const firstUrl = "/rails-wayback/commits/refs/heads/first";
+  const firstUrl = "/rails-wayback/commits?reference=refs%2Fheads%2Ffirst";
   const firstSignal = signals.at(-1);
   const second = toolbar.fetchCommits("refs/heads/second");
-  const secondUrl = "/rails-wayback/commits/refs/heads/second";
+  const secondUrl = "/rails-wayback/commits?reference=refs%2Fheads%2Fsecond";
   assert.equal(firstSignal.aborted, true);
 
   pending.get(secondUrl)(response({ commits: [{ sha: "2", short_sha: "2", subject: "second" }] }));
   await second;
   pending.get(firstUrl)(response({ commits: [{ sha: "1", short_sha: "1", subject: "first" }] }));
   await first;
-  assert.equal(toolbar.commits[0].sha, "2");
+  assert.equal(toolbar.commitBox.value, "2");
   toolbar.disconnect();
   assert.ok(signals.every((signal) => signal.aborted));
+}
+
+async function testFailuresAndEmptyResults() {
+  const failed = fixture(async () => ({ ok: false, status: 503 }));
+  await failed.toolbar.connect();
+  assert.equal(failed.fields["[data-rw-branch-value]"].textContent, "Refs unavailable");
+  assert.equal(failed.fields["[data-rw-branch-results]"].textContent, "Refs unavailable");
+  assert.equal(failed.fields["[data-rw-state]"].textContent, "references: HTTP 503 on /references");
+  assert.equal(failed.fields["[data-rw-native]"].hidden, false);
+  assert.equal(failed.fields["[data-rw-enhanced]"].hidden, true);
+
+  const empty = fixture(async () => response({ refs: [] }));
+  await empty.toolbar.connect();
+  assert.equal(empty.fields["[data-rw-branch-value]"].textContent, "Select a ref");
+  assert.equal(empty.fields["[data-rw-branch-trigger]"].disabled, true);
+}
+
+async function testServerOwnedTravelSubmission() {
+  const refs = [{ full_name: "refs/heads/main", name: "main", label: "main", type: "branch" }];
+  const commits = [{ sha: "a".repeat(40), short_sha: "aaaaaaa", subject: "Current work" }];
+  const fetch = async (url) => response(url.endsWith("/references") ? { refs } : { commits });
+  let confirmations = 0;
+  const accepted = fixture(fetch, { confirm() { confirmations += 1; return true; } });
+  await accepted.toolbar.connect();
+
+  const firstSubmit = accepted.fields["[data-rw-travel-form]"].dispatch("submit");
+  const secondSubmit = accepted.fields["[data-rw-travel-form]"].dispatch("submit");
+  assert.equal(confirmations, 1);
+  assert.equal(firstSubmit.defaultPrevented, false);
+  assert.equal(secondSubmit.defaultPrevented, false);
+  assert.equal(accepted.fields["[data-rw-trust-confirmation]"].checked, true);
+  assert.equal(accepted.cookies.length, 0);
+  assert.equal(accepted.assignedUrls.length, 0);
+  assert.equal(accepted.fields["[data-rw-native]"].hidden, true);
+  assert.equal(accepted.fields["[data-rw-enhanced]"].hidden, false);
+  assert.equal(accepted.fields["[data-rw-trust-field]"].hidden, true);
+  assert.equal(accepted.fields["[data-rw-trust-confirmation]"].required, false);
+
+  const rejected = fixture(fetch, { confirm() { return false; } });
+  await rejected.toolbar.connect();
+  const rejectedSubmit = rejected.fields["[data-rw-travel-form]"].dispatch("submit");
+  assert.equal(rejectedSubmit.defaultPrevented, true);
+  assert.equal(rejected.fields["[data-rw-trust-confirmation]"].checked, false);
+  assert.equal(rejected.cookies.length, 0);
+  assert.equal(rejected.assignedUrls.length, 0);
+}
+
+async function testReconnect() {
+  let branchLoads = 0;
+  const fetch = async (url) => {
+    if (url.endsWith("/references")) branchLoads += 1;
+    return response({ refs: [] });
+  };
+  const { toolbar } = fixture(fetch);
+  await toolbar.connect();
+  toolbar.disconnect();
+  await toolbar.connect();
+  assert.equal(branchLoads, 2);
 }
 
 async function run() {
   await testSearchableDropdowns();
   await testStaleResponse();
+  await testFailuresAndEmptyResults();
+  await testServerOwnedTravelSubmission();
+  await testReconnect();
   process.stdout.write(JSON.stringify({
+    errorsAndEmptyResults: true,
     searchableDropdowns: true,
     keyboardSelection: true,
     lifecycle: true,
+    navigationAndTrust: true,
+    reconnect: true,
     staleResponseIgnored: true
   }));
 }

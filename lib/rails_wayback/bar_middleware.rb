@@ -1,10 +1,8 @@
 # frozen_string_literal: true
 
-require "cgi"
-require "rails_wayback/asset_provenance"
 require "rails_wayback/bar_renderer"
-require "rails_wayback/engine_mount"
-require "rails_wayback/ref_policy"
+require "rails_wayback/failure_boundary"
+require "rails_wayback/toolbar_state"
 
 module RailsWayback
   # Rack middleware that appends the wayback bar to every successful
@@ -37,8 +35,9 @@ module RailsWayback
       /rails-wayback
     ].freeze
 
-    def initialize(app)
+    def initialize(app, failure_boundary: RailsWayback::FailureBoundary.new)
       @app = app
+      @failure_boundary = failure_boundary
     end
 
     def call(env)
@@ -195,173 +194,10 @@ module RailsWayback
     end
 
     def build_snippet(env, tracker)
-      git = RailsWayback::Git.new
-      selection = ref_selection(env)
-      active_ref = selection&.accepted? ? selection.sha : nil
-      active_branch = active_ref ? active_branch_for(env, git, selection) : nil
-
-      renderer = BarRenderer.new(
-        current_branch: safe(:current_branch, git),
-        current_commit: safe(:current_commit, git),
-        active_ref: active_ref,
-        active_branch: active_branch,
-        engine_mount: engine_mount,
-        diff_info: active_ref ? build_diff_info(git, active_ref, tracker) : nil,
-        csp_nonce: content_security_policy_nonce(env),
-        ref_error: selection&.rejected? ? selection.message : nil
-      )
-      renderer.render
-    rescue StandardError => e
-      Rails.logger.warn("[rails-wayback] failed to render bar: #{e.class}: #{e.message}") if defined?(Rails)
-      ""
-    end
-
-    def safe(method, git)
-      git.public_send(method)
-    rescue StandardError
-      ""
-    end
-
-    def content_security_policy_nonce(env)
-      return unless defined?(ActionDispatch::Request)
-
-      request = ActionDispatch::Request.new(env)
-      request.content_security_policy_nonce if request.respond_to?(:content_security_policy_nonce)
-    rescue StandardError
-      nil
-    end
-
-    # Determines the branch label to show in the bar while traveling.
-    # Prefers the branch the user explicitly picked in the bar (passed
-    # via the `_wayback_branch` query param, so it survives the reload).
-    # Falls back to inferring it from git — useful when a developer opens
-    # a shared URL that only carries `_wayback_ref`.
-    def active_branch_for(env, git, selection)
-      explicit = extract_active_branch(env)
-      explicit_ref = trusted_ref_for(explicit, selection.trusted_refs)
-      return reference_label(explicit_ref) if explicit_ref
-
-      inferred = git.resolve_branch_for(selection.sha)
-      inferred_ref = "refs/heads/#{inferred}"
-      return inferred if inferred && selection.trusted_refs.include?(inferred_ref)
-
-      reference_label(selection.trusted_refs.first)
-    rescue StandardError
-      nil
-    end
-
-    def trusted_ref_for(selector, trusted_refs)
-      return if selector.to_s.empty?
-      return selector if trusted_refs.include?(selector)
-
-      trusted_refs.find do |reference|
-        reference_name(reference) == selector || reference_label(reference) == selector
-      end
-    end
-
-    def reference_name(reference)
-      reference.to_s.sub(%r{\Arefs/(?:heads|tags|remotes)/}, "")
-    end
-
-    def reference_label(reference)
-      return if reference.to_s.empty?
-
-      name = reference_name(reference)
-      reference.start_with?("refs/tags/") ? "tag:#{name}" : name
-    end
-
-    # Builds the diff summary shown in the bar when a ref is active.
-    # `changed_files`: view/asset paths that differ between the ref and
-    # the current working tree, always scoped to the paths the gem
-    # actually swaps. Rendered paths are split by origin so the toolbar can
-    # warn when a successful page silently mixes historical templates with
-    # current-tree fallbacks.
-    def build_diff_info(git, ref, tracker)
-      config = RailsWayback.configuration
-      tracked_paths = (config.view_paths + config.asset_paths).uniq
-      changed_files = git.diff_paths(ref, paths: tracked_paths)
-
-      rendered = RailsWayback::RenderProvenance.paths_by_origin(
-        tracker.entries,
-        configuration: config
-      )
-      rendered_from_ref = rendered[:historical]
-      rendered_from_current = rendered[:current]
-      assets = RailsWayback::AssetProvenance.paths_by_origin(tracker.entries)
-      matched = changed_files & rendered_from_ref
-
-      {
-        changed_files: changed_files,
-        rendered_from_ref: rendered_from_ref,
-        rendered_from_current: rendered_from_current,
-        historical_assets: assets[:historical],
-        current_asset_fallbacks: assets[:current],
-        preview_mode: preview_mode(rendered_from_ref, rendered_from_current),
-        matched: matched
-      }
-    rescue StandardError => e
-      Rails.logger.warn("[rails-wayback] failed to build diff info: #{e.class}: #{e.message}") if defined?(Rails)
-      nil
-    end
-
-    def preview_mode(historical, current)
-      return :mixed if historical.any? && current.any?
-      return :historical if historical.any?
-      return :current_fallback if current.any?
-
-      :unknown
-    end
-
-    # Query params take priority (one-off overrides / shared links);
-    # cookies keep the travel state alive as the developer navigates
-    # around the app without repeating the params in every URL.
-    def extract_active_ref(env)
-      extract_query_param(env, "_wayback_ref") ||
-        extract_cookie(env, "rails_wayback_ref")
-    end
-
-    def ref_selection(env)
-      return env[RailsWayback::RefPolicy::ENV_KEY] if env.key?(RailsWayback::RefPolicy::ENV_KEY)
-
-      ref = extract_active_ref(env)
-      return unless ref
-
-      RailsWayback::RefPolicy.new.authorize(ref).tap do |selection|
-        env[RailsWayback::RefPolicy::ENV_KEY] = selection
-      end
-    end
-
-    def extract_active_branch(env)
-      extract_query_param(env, "_wayback_branch") ||
-        extract_cookie(env, "rails_wayback_branch")
-    end
-
-    def extract_query_param(env, name)
-      query = env["QUERY_STRING"].to_s
-      return nil if query.empty?
-
-      prefix = "#{name}="
-      match = query.split("&").find { |pair| pair.start_with?(prefix) }
-      return nil unless match
-
-      value = CGI.unescape(match.split("=", 2).last.to_s)
-      value.empty? ? nil : value
-    end
-
-    def extract_cookie(env, name)
-      header = env["HTTP_COOKIE"].to_s
-      return nil if header.empty?
-
-      prefix = "#{name}="
-      match = header.split(/;\s*/).find { |pair| pair.start_with?(prefix) }
-      return nil unless match
-
-      value = CGI.unescape(match.split("=", 2).last.to_s)
-      value.empty? ? nil : value
-    end
-
-    def engine_mount
-      RailsWayback::EngineMount.path
+      @failure_boundary.capture("render toolbar", fallback: "") do
+        attributes = RailsWayback::ToolbarState.new(env: env, tracker: tracker).to_h
+        BarRenderer.new(**attributes).render
+      end.value
     end
   end
 end

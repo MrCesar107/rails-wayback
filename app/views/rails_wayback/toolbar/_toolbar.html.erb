@@ -1,0 +1,96 @@
+<link rel="stylesheet" href="<%= stylesheet_url %>" data-rails-wayback<% unless @csp_nonce.empty? %> nonce="<%= @csp_nonce %>"<% end %>>
+<div id="rails-wayback-bar" data-mount="<%= @engine_mount %>"
+     data-branch="<%= @current_branch %>"
+     data-commit="<%= @current_commit %>"
+     data-active-ref="<%= @active_ref.to_s %>"
+     data-active-branch="<%= @active_branch.to_s %>"
+     data-ref-error="<%= @ref_error %>"
+     data-preview-mode="<%= @diff_info&.dig(:preview_mode).to_s %>">
+  <div class="rw-bar-inner">
+    <form action="<%= @engine_mount %>/travel" method="post" class="rw-travel-form" data-rw-travel-form>
+      <input type="hidden" name="authenticity_token" value="<%= @authenticity_token %>">
+      <input type="hidden" name="return_to" value="<%= @return_to %>">
+
+      <div class="rw-native-controls" data-rw-native>
+        <div class="rw-field">
+          <label for="rails-wayback-branch-native"><%= branch_label %></label>
+          <select id="rails-wayback-branch-native" name="branch" data-rw-branch-native>
+            <%= options_for_select(@references.map { |reference| [reference.label, reference.full_name] }, @selected_branch) %>
+          </select>
+        </div>
+        <div class="rw-field rw-flex">
+          <label for="rails-wayback-commit-native"><%= commit_label %></label>
+          <select id="rails-wayback-commit-native" name="ref" data-rw-commit-native>
+            <%= options_for_select(@commits.map { |commit| [commit_label_for.call(commit), commit.sha] }, @selected_commit) %>
+          </select>
+        </div>
+      </div>
+
+      <div class="rw-enhanced-controls" data-rw-enhanced hidden>
+        <div class="rw-field">
+          <label id="rails-wayback-branches-label" for="rails-wayback-branch-trigger"><%= branch_label %></label>
+          <div class="rw-combobox" data-rw-branch-combobox>
+            <button id="rails-wayback-branch-trigger" type="button" class="rw-combobox-trigger"
+                    data-rw-branch-trigger data-rw-trigger aria-haspopup="listbox" aria-expanded="false"
+                    aria-labelledby="rails-wayback-branches-label rails-wayback-branch-value"
+                    aria-controls="rails-wayback-branches" disabled>
+              <span id="rails-wayback-branch-value" data-rw-branch-value data-rw-value>Loading refs…</span>
+            </button>
+            <div class="rw-combobox-dropdown" data-rw-branch-dropdown data-rw-dropdown hidden>
+              <input type="search" data-rw-branch-search aria-label="Search Git refs" data-rw-search
+                     role="combobox" aria-autocomplete="list" aria-expanded="false"
+                     aria-controls="rails-wayback-branches" placeholder="Search refs"
+                     autocomplete="off" spellcheck="false" disabled>
+              <div id="rails-wayback-branches" data-rw-branch-options role="listbox" data-rw-options
+                   aria-labelledby="rails-wayback-branches-label" class="rw-combobox-options"></div>
+              <span class="rw-search-status" data-rw-branch-results role="status" aria-live="polite" data-rw-results></span>
+            </div>
+          </div>
+        </div>
+        <div class="rw-field rw-flex">
+          <label id="rails-wayback-commits-label" for="rails-wayback-commit-trigger"><%= commit_label %></label>
+          <div class="rw-combobox rw-combobox-commit" data-rw-commit-combobox>
+            <button id="rails-wayback-commit-trigger" type="button" class="rw-combobox-trigger"
+                    data-rw-commit-trigger data-rw-trigger aria-haspopup="listbox" aria-expanded="false"
+                    aria-labelledby="rails-wayback-commits-label rails-wayback-commit-value"
+                    aria-controls="rails-wayback-commits" disabled>
+              <span id="rails-wayback-commit-value" data-rw-commit-value data-rw-value>Loading commits…</span>
+            </button>
+            <div class="rw-combobox-dropdown" data-rw-commit-dropdown data-rw-dropdown hidden>
+              <input type="search" data-rw-commit-search aria-label="Search commits" data-rw-search
+                     role="combobox" aria-autocomplete="list" aria-expanded="false"
+                     aria-controls="rails-wayback-commits" placeholder="Search commits"
+                     autocomplete="off" spellcheck="false" disabled>
+              <div id="rails-wayback-commits" data-rw-commit-options role="listbox" data-rw-options
+                   aria-labelledby="rails-wayback-commits-label" class="rw-combobox-options"></div>
+              <span class="rw-search-status" data-rw-commit-results role="status" aria-live="polite" data-rw-results></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <label class="rw-confirmation" data-rw-trust-field>
+        <input type="checkbox" name="confirmed" value="true" data-rw-trust-confirmation required>
+        I trust this commit
+      </label>
+      <div class="rw-state" data-rw-state></div>
+      <button type="submit" data-rw-travel class="rw-btn rw-btn-primary" <%= "disabled" if @selected_commit.empty? %>>Travel</button>
+    </form>
+
+    <form action="<%= @engine_mount %>/travel" method="post" data-rw-reset-form <%= "hidden" unless @active_ref || !@ref_error.empty? %>>
+      <input type="hidden" name="_method" value="delete">
+      <input type="hidden" name="authenticity_token" value="<%= @authenticity_token %>">
+      <input type="hidden" name="return_to" value="<%= @return_to %>">
+      <button type="submit" data-rw-reset class="rw-btn rw-btn-ghost">Return to HEAD</button>
+    </form>
+  </div>
+  <div class="rw-trust-notice" data-rw-trust-notice>
+    Historical templates execute Ruby in this process. Only travel to commits you trust.
+    Historical JavaScript executes in this application's browser origin.
+    <% unless @ref_error.empty? %>
+      <strong class="rw-ref-rejected"><%= @ref_error %></strong>
+    <% end %>
+  </div>
+  <%= raw(diff_summary_html) %>
+</div>
+<script src="<%= javascript_url %>" defer data-rails-wayback<% unless @csp_nonce.empty? %> nonce="<%= @csp_nonce %>"<% end %>></script>

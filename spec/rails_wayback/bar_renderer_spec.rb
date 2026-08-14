@@ -3,6 +3,13 @@
 require "rails_wayback/bar_renderer"
 
 RSpec.describe RailsWayback::BarRenderer do
+  it "renders the isolated engine view instead of a template under lib" do
+    expect(described_class::VIEW_PATH)
+      .to end_with("app/views/rails_wayback/toolbar/_toolbar.html.erb")
+    expect(File).to exist(described_class::VIEW_PATH)
+    expect(File).not_to exist(File.expand_path("../../lib/rails_wayback/bar_renderer.html.erb", __dir__))
+  end
+
   it "renders the bar HTML with branch, commit and active ref data attributes" do
     html = described_class.new(
       current_branch: "main",
@@ -31,8 +38,8 @@ RSpec.describe RailsWayback::BarRenderer do
     html = described_class.new(current_branch: "main", current_commit: "abc1234").render
 
     expect(html).to include(
-      'data-rw-branch-combobox',
-      'data-rw-branch-trigger',
+      "data-rw-branch-combobox",
+      "data-rw-branch-trigger",
       'aria-haspopup="listbox"',
       'aria-expanded="false"',
       'type="search" data-rw-branch-search',
@@ -40,8 +47,8 @@ RSpec.describe RailsWayback::BarRenderer do
       'aria-controls="rails-wayback-branches"',
       'id="rails-wayback-branches" data-rw-branch-options role="listbox"',
       'data-rw-branch-results role="status" aria-live="polite"',
-      'data-rw-commit-combobox',
-      'data-rw-commit-trigger',
+      "data-rw-commit-combobox",
+      "data-rw-commit-trigger",
       'type="search" data-rw-commit-search',
       'aria-label="Search commits"',
       'aria-controls="rails-wayback-commits"',
@@ -50,7 +57,46 @@ RSpec.describe RailsWayback::BarRenderer do
     )
     expect(html).to match(/data-rw-branch-dropdown[^>]*hidden.*data-rw-branch-search/m)
     expect(html).to match(/data-rw-commit-dropdown[^>]*hidden.*data-rw-commit-search/m)
-    expect(html).not_to include("<select")
+    expect(html).to include("<select")
+  end
+
+  it "renders an HTML-first travel form before JavaScript enhancement" do
+    reference = RailsWayback::Git::Reference.new(
+      full_name: "refs/heads/main",
+      name: "main",
+      kind: :branch,
+      label: "main"
+    )
+    commit = RailsWayback::Git::Commit.new(
+      sha: "a" * 40,
+      short_sha: "aaaaaaa",
+      subject: "Current work"
+    )
+
+    html = described_class.new(
+      authenticity_token: "csrf-token",
+      commits: [commit],
+      current_branch: "main",
+      current_commit: commit.sha,
+      references: [reference],
+      return_to: "/letters?tab=preview"
+    ).render
+
+    expect(html).to include(
+      'action="/rails-wayback/travel" method="post"',
+      'name="authenticity_token" value="csrf-token"',
+      'name="return_to" value="/letters?tab=preview"',
+      'name="confirmed" value="true"',
+      "data-rw-trust-confirmation",
+      "required",
+      'name="branch" data-rw-branch-native',
+      '<option selected="selected" value="refs/heads/main">main</option>',
+      'name="ref" data-rw-commit-native',
+      %(<option selected="selected" value="#{commit.sha}">aaaaaaa — Current work</option>),
+      "data-rw-enhanced hidden",
+      'action="/rails-wayback/travel" method="post" data-rw-reset-form',
+      'name="_method" value="delete"'
+    )
   end
 
   it "uses async functions for toolbar requests without promise callback chains" do
@@ -58,8 +104,9 @@ RSpec.describe RailsWayback::BarRenderer do
 
     expect(script).to include(
       "class RailsWaybackToolbar",
+      "class RailsWaybackCombobox",
       "async fetchBranches()",
-      "async fetchCommits(branch)"
+      "async fetchCommits(branch, selectedCommit)"
     )
     expect(script).not_to include(".then(")
   end
@@ -93,6 +140,19 @@ RSpec.describe RailsWayback::BarRenderer do
       "window.sessionStorage.getItem(key)",
       'stateEl.textContent = "Travel rejected"',
       "Continue only if you trust this commit"
+    )
+  end
+
+  it "leaves travel cookies and redirects to the Rails controller" do
+    expect(described_class::SCRIPT).to include(
+      'addEventListener("submit"',
+      "trustWarningAccepted()"
+    )
+    expect(described_class::SCRIPT).not_to include(
+      "document.cookie",
+      "location.assign",
+      'searchParams.set("_wayback_ref"',
+      '"/reset"'
     )
   end
 

@@ -67,6 +67,26 @@ RSpec.describe RailsWayback::BarMiddleware do
       end
     end
 
+    it "leaves the host response untouched when the outer toolbar boundary fails" do
+      with_enabled_wayback do
+        logger = instance_double(Logger, warn: nil)
+        boundary = RailsWayback::FailureBoundary.new(logger: logger)
+        failing_middleware = described_class.new(downstream_app, failure_boundary: boundary)
+        allow(RailsWayback::ToolbarState).to receive(:new).and_raise(ArgumentError, "toolbar bug")
+
+        _status, _headers, body = failing_middleware.call(
+          "PATH_INFO" => "/letters",
+          "QUERY_STRING" => "",
+          "REQUEST_METHOD" => "GET"
+        )
+
+        expect(body.join).to eq(downstream_body)
+        expect(logger).to have_received(:warn).with(
+          "[rails-wayback] render toolbar failed: ArgumentError: toolbar bug"
+        )
+      end
+    end
+
     it "skips non-HTML responses" do
       SpecSupport.with_tmp_root do |root|
         SpecSupport.build_git_repo(root)
@@ -89,7 +109,7 @@ RSpec.describe RailsWayback::BarMiddleware do
         SpecSupport.commit_file(root, "README.md", "hi", message: "init")
         RailsWayback.enable!
 
-        _status, _headers, body = call(path: "/rails-wayback/branches.json")
+        _status, _headers, body = call(path: "/rails-wayback/references")
         expect(body.join).to eq(downstream_body)
 
         _status, _headers, body_assets = call(path: "/assets/application.css")

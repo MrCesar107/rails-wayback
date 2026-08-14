@@ -11,9 +11,9 @@ page of your app:
 
 - Pick a branch and a commit.
 - Hit **Travel**.
-- The current URL reloads with `?_wayback_ref=<sha>`, and the app renders
-  that exact page using the **views/layouts/partials of the chosen ref**,
-  while keeping the current controller's data and models.
+- The engine stores the authorized selection and reloads the current URL. The
+  app renders that exact page using the **views/layouts/partials of the chosen
+  ref**, while keeping the current controller's data and models.
 
 Design goals:
 
@@ -79,29 +79,36 @@ bottom with:
   box filters the loaded commits by SHA, subject, author, or date.
 - `Travel` — reloads the current URL using views from that commit.
 - `Return to HEAD` — appears while traveling; goes back to live views.
-  It uses a server-side reset endpoint, which is also available directly at
-  `/rails-wayback/reset` if a historical template prevents the page from
-  rendering.
+  It submits to the engine's server-owned travel resource, which clears the
+  travel cookies before redirecting back to the current page. Historical
+  template failures render the same self-contained recovery form.
 
 There is no dedicated `/rails-wayback` page. The gem stays quiet on assets,
-ActionCable, and every URL under `/rails-wayback/*.json` (used by the bar to
-fetch git data).
+ActionCable, and every URL under `/rails-wayback` (used by the bar to fetch Git
+data and manage travel state). The toolbar renders native ref and commit
+selectors first, so travel and recovery remain usable without JavaScript.
+JavaScript progressively upgrades those controls with search and keyboard
+navigation when the engine endpoints are available.
 
 ## How "travel" actually works
 
 `rails-wayback` never runs a second Rails server. Travel is just:
 
-1. The bar appends `?_wayback_ref=<sha>` to the current URL and reloads.
-2. A `before_action`, auto-included in every `ActionController::Base`
+1. The bar posts the selected ref to the engine's travel controller.
+2. The controller authorizes the commit, stores the canonical ref in HTTP-only
+   same-site cookies, and redirects back to the original URL.
+3. A `before_action`, auto-included in every `ActionController::Base`
    subclass, sees `_wayback_ref` and materialises that ref under
    `tmp/rails_wayback/refs/<sha>/` (cached per commit).
-3. The same before_action calls `prepend_view_path` with the sandbox, so
+   Shared URLs carrying `_wayback_ref` remain supported, with query parameters
+   taking precedence over cookies.
+4. The same before_action calls `prepend_view_path` with the sandbox, so
    Action View resolves templates from the ref before falling back to the
    current tree.
-4. Standard Rails asset helpers resolve browser-ready files from the ref's
+5. Standard Rails asset helpers resolve browser-ready files from the ref's
    `public/` directory to immutable, SHA-specific engine URLs. Missing files
    fall back to the current Rails asset resolver.
-5. Your controller runs as usual, sets its `@` variables, and renders. The
+6. Your controller runs as usual, sets its `@` variables, and renders. The
    visual layer (layouts, partials, ERB) comes from the past; the data and
    business logic come from the present.
 
@@ -110,8 +117,9 @@ database state that no longer exists, Rails Wayback returns a self-contained
 500 recovery page with the original error and a **Return to current version**
 action. This boundary applies only when the failing template came from the
 materialised historical ref; unrelated controller and application errors keep
-their normal Rails behavior. `/rails-wayback/reset` remains available directly
-to clear the travel cookies without rendering a host application view.
+their normal Rails behavior. The recovery response contains an isolated,
+CSRF-protected form that clears travel state without rendering another host
+application view.
 
 The toolbar tracks templates, partials, layouts, and collections. While
 traveling it labels a response as historical, current fallback, or mixed so
@@ -202,6 +210,32 @@ operations wait for active previews before removing their files.
 `rails-wayback prune` applies the limits immediately. `rails-wayback clean`
 removes all ref data and per-ref lock files. Set either cache limit to `nil` to
 disable it.
+
+## Supported public API
+
+Rails Wayback deliberately keeps its Ruby extension surface small. Semantic
+versioning applies to these entry points:
+
+- `require "rails_wayback"` and `RailsWayback::VERSION`.
+- `RailsWayback.configure`, `RailsWayback.configuration`,
+  `RailsWayback.enabled?`, `RailsWayback.enable!`, and
+  `RailsWayback.disable!`. Calling `enable!` in a disallowed environment may
+  raise `RailsWayback::DisabledError`.
+- The documented configuration attributes: `allowed_environments`,
+  `trusted_ref_patterns`, `view_paths`, `asset_paths`, `max_commits`,
+  `max_cached_refs`, `max_cache_bytes`, and `max_response_bytes`.
+- `RailsWayback::Engine`, the `rails_wayback:install` generator, the
+  `rails-wayback` executable commands, and their documented `wayback:*` Rake
+  task equivalents.
+
+The initializer configuration block is the supported extension point. The
+engine controllers and HTTP endpoints, middleware, toolbar state, Git wrapper,
+cache implementation, renderer, and other constants under `RailsWayback` are
+internal. They may change between minor releases and should not be
+monkey-patched or called by application code. In particular, the JSON endpoints
+under the engine mount support the packaged toolbar; they are not a general
+remote Git API. There are currently no supported callbacks or adapter
+interfaces beyond configuration.
 
 ## Compatibility
 

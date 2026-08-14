@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "cgi"
 require "rails_wayback/engine_mount"
 require "rails_wayback/travel_error_page"
 
@@ -71,10 +70,12 @@ module RailsWayback
       response.set_header("Content-Type", "text/html; charset=utf-8")
       response.status = 500
       controller.response_body = TravelErrorPage.new(
+        authenticity_token: authenticity_token,
         branch: active_branch,
         error: error,
         ref: selection.sha,
-        reset_url: reset_url
+        return_to: return_to,
+        travel_url: "#{RailsWayback::EngineMount.path}/travel"
       ).render
     end
 
@@ -85,11 +86,16 @@ module RailsWayback
       controller.request.cookie_jar["rails_wayback_branch"].to_s
     end
 
-    def reset_url
+    def return_to
       query = controller.request.query_parameters.except("_wayback_ref", "_wayback_branch").to_query
-      return_to = controller.request.path
-      return_to = "#{return_to}?#{query}" unless query.empty?
-      "#{RailsWayback::EngineMount.path}/reset?return_to=#{CGI.escape(return_to)}"
+      target = controller.request.path
+      query.empty? ? target : "#{target}?#{query}"
+    end
+
+    def authenticity_token
+      controller.send(:form_authenticity_token)
+    rescue StandardError
+      ""
     end
 
     def log(error)

@@ -2,6 +2,7 @@
 
 require "open3"
 require "pathname"
+require "rails_wayback/git_reference"
 
 module RailsWayback
   # Thin wrapper around shell git for the host application repository.
@@ -14,13 +15,7 @@ module RailsWayback
   # Only if this functionality is not enough for the gem on the future.
   class Git
     Commit = Struct.new(:sha, :short_sha, :subject, :author, :date, keyword_init: true)
-    Reference = Struct.new(:full_name, :name, :kind, :label, keyword_init: true)
-    REFERENCE_PREFIXES = {
-      "refs/heads/" => :branch,
-      "refs/remotes/" => :remote,
-      "refs/tags/" => :tag
-    }.freeze
-    REFERENCE_KIND_ORDER = { branch: 0, remote: 1, tag: 2 }.freeze
+    Reference = RailsWayback::GitReference
 
     class GitError < StandardError; end
     class ExecutableNotFoundError < GitError; end
@@ -67,7 +62,7 @@ module RailsWayback
 
         build_reference(full_name)
       end
-      discovered.sort_by { |reference| [REFERENCE_KIND_ORDER.fetch(reference.kind), reference.label] }
+      discovered.sort_by { |reference| [GitReference::KIND_ORDER.fetch(reference.kind), reference.label] }
     end
 
     # Resolves either a canonical full ref name (preferred) or a legacy short
@@ -75,13 +70,8 @@ module RailsWayback
     def reference(selector, patterns: RailsWayback.configuration.trusted_ref_patterns)
       available = references(patterns: patterns)
       input = selector.to_s
-      exact = available.find { |candidate| candidate.full_name == input }
-      return exact if exact
-
-      compatible = available.find do |candidate|
-        candidate.name == input || candidate.label == input
-      end
-      return compatible if compatible
+      matched = GitReference.find(available, input)
+      return matched if matched
 
       raise GitError, "Git ref #{input.inspect} is not trusted or is unavailable locally"
     end
@@ -194,12 +184,7 @@ module RailsWayback
     end
 
     def build_reference(full_name)
-      prefix, kind = REFERENCE_PREFIXES.find { |candidate, _value| full_name.start_with?(candidate) }
-      return unless prefix
-
-      name = full_name.delete_prefix(prefix)
-      label = kind == :tag ? "tag:#{name}" : name
-      Reference.new(full_name: full_name, name: name, kind: kind, label: label)
+      GitReference.parse(full_name)
     end
 
     def run(*)

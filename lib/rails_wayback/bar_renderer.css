@@ -10,6 +10,13 @@
 #rails-wayback-bar .rw-bar-inner {
   display: flex; align-items: end; gap: 12px; padding: 8px 12px;
 }
+#rails-wayback-bar .rw-travel-form,
+#rails-wayback-bar [data-rw-reset-form] { display: contents; }
+#rails-wayback-bar .rw-native-controls,
+#rails-wayback-bar .rw-enhanced-controls { display: contents; }
+#rails-wayback-bar .rw-native-controls[hidden],
+#rails-wayback-bar .rw-enhanced-controls[hidden],
+#rails-wayback-bar [data-rw-reset-form][hidden] { display: none; }
 #rails-wayback-bar .rw-field { display: flex; flex-direction: column; gap: 3px; min-width: 240px; }
 #rails-wayback-bar .rw-flex { flex: 1; }
 #rails-wayback-bar label {
@@ -17,6 +24,7 @@
 }
 #rails-wayback-bar .rw-combobox { position: relative; min-width: 0; }
 #rails-wayback-bar .rw-combobox-trigger,
+#rails-wayback-bar select,
 #rails-wayback-bar input[type="search"] {
   background: #0b0d12; color: #e6e9ef;
   border: 1px solid #2a2f3a; border-radius: 4px;
@@ -61,15 +69,21 @@
   color: #fff; background: #245fb8;
 }
 #rails-wayback-bar .rw-combobox-trigger:focus-visible,
+#rails-wayback-bar select:focus-visible,
 #rails-wayback-bar input[type="search"]:focus-visible {
   border-color: #6ea8fe; outline: 2px solid rgba(110, 168, 254, .35); outline-offset: 1px;
 }
 #rails-wayback-bar input[type="search"][aria-invalid="true"] { border-color: #ff7b72; }
 #rails-wayback-bar .rw-combobox-trigger:disabled,
+#rails-wayback-bar select:disabled,
 #rails-wayback-bar input[type="search"]:disabled { opacity: .55; }
 #rails-wayback-bar .rw-search-status { color: #8a93a6; font-size: 9px; min-height: 11px; }
 #rails-wayback-bar .rw-state { color: #8a93a6; font-size: 11px; margin: 0 4px; }
 #rails-wayback-bar .rw-state.rw-active { color: #ffd479; }
+#rails-wayback-bar .rw-confirmation {
+  display: flex; align-items: center; gap: 5px; color: #ffb86b;
+  text-transform: none; letter-spacing: normal; white-space: nowrap;
+}
 #rails-wayback-bar .rw-btn {
   border: 0; border-radius: 4px; padding: 8px 14px; cursor: pointer;
   font-family: inherit; font-size: 12px; font-weight: 600;

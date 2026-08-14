@@ -1,35 +1,79 @@
 # frozen_string_literal: true
 
 require "cgi"
-require "erb"
+require "action_view"
+require "rails_wayback/git_reference"
 require "rails_wayback/version"
 
 module RailsWayback
   # Builds the HTML payload that the middleware injects into every HTML
   # response and references the toolbar's same-origin CSS and JavaScript.
   class BarRenderer
-    TEMPLATE = ERB.new(File.read(File.expand_path("bar_renderer.html.erb", __dir__))).freeze
+    VIEW_ROOT = File.expand_path("../../app/views", __dir__)
+    VIEW_PATH = File.join(VIEW_ROOT, "rails_wayback/toolbar/_toolbar.html.erb")
+    VIEW_CLASS = ActionView::Base.with_empty_template_cache
     STYLES = File.read(File.expand_path("bar_renderer.css", __dir__)).freeze
     SEARCH_SCRIPT = File.read(File.expand_path("bar_search.js", __dir__)).freeze
-    SCRIPT = [SEARCH_SCRIPT, File.read(File.expand_path("bar_renderer.js", __dir__))].join("\n").freeze
+    COMBOBOX_SCRIPT = File.read(File.expand_path("bar_combobox.js", __dir__)).freeze
+    TOOLBAR_SCRIPT = File.read(File.expand_path("bar_renderer.js", __dir__)).freeze
+    SCRIPT = [SEARCH_SCRIPT, COMBOBOX_SCRIPT, TOOLBAR_SCRIPT].join("\n").freeze
 
     def initialize(current_branch:, current_commit:, active_ref: nil, active_branch: nil,
-                   engine_mount: "/rails-wayback", diff_info: nil, csp_nonce: nil, ref_error: nil)
+                   authenticity_token: nil, commits: [], engine_mount: "/rails-wayback",
+                   diff_info: nil, csp_nonce: nil, ref_error: nil, references: [], return_to: "/",
+                   selected_branch: nil, selected_commit: nil)
       @current_branch = current_branch
       @current_commit = current_commit
       @active_ref = active_ref
       @active_branch = active_branch
+      @authenticity_token = authenticity_token.to_s
+      @commits = commits
       @engine_mount = normalize_mount(engine_mount)
       @diff_info = diff_info
       @csp_nonce = csp_nonce.to_s
       @ref_error = ref_error.to_s
+      @references = references
+      @return_to = return_to.to_s
+      @selected_branch = selected_branch || matching_reference&.full_name.to_s
+      @selected_commit = selected_commit || matching_commit&.sha.to_s
     end
 
     def render
-      TEMPLATE.result(binding)
+      view = VIEW_CLASS.with_view_paths([VIEW_ROOT], view_assigns)
+      view.render(
+        partial: "rails_wayback/toolbar/toolbar",
+        locals: {
+          branch_label: branch_label,
+          commit_label: commit_label,
+          commit_label_for: method(:commit_label_for),
+          diff_summary_html: diff_summary_html,
+          javascript_url: javascript_url,
+          stylesheet_url: stylesheet_url
+        }
+      )
     end
 
     private
+
+    def matching_reference
+      selection = @active_branch || @current_branch
+      GitReference.find(@references, selection) || @references.first
+    end
+
+    def matching_commit
+      selection = @active_ref || @current_commit
+      @commits.find { |commit| commit.sha == selection } || @commits.first
+    end
+
+    def commit_label_for(commit)
+      "#{commit.short_sha} — #{commit.subject.to_s.slice(0, 80)}"
+    end
+
+    def view_assigns
+      instance_variables.to_h do |name|
+        [name.to_s.delete_prefix("@"), instance_variable_get(name)]
+      end
+    end
 
     def branch_label
       @active_ref ? "Rendering ref" : "Current ref"
@@ -136,12 +180,6 @@ module RailsWayback
 
     def asset_url(filename)
       "#{@engine_mount}/assets/#{filename}?v=#{RailsWayback::VERSION}"
-    end
-
-    def nonce_attribute
-      return "" if @csp_nonce.empty?
-
-      %( nonce="#{escape(@csp_nonce)}")
     end
 
     def normalize_mount(value)
